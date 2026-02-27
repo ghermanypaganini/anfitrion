@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { createClient } from "@/lib/supabase-browser";
+import Link from "next/link";
 
 type Property = {
   id: string;
@@ -18,6 +19,8 @@ export default function AcomodacaoDetalhe() {
   const [property, setProperty] = useState<Property | null>(null);
   const [name, setName] = useState("");
   const [icalUrl, setIcalUrl] = useState("");
+
+  const [isSyncing, setIsSyncing] = useState(false);
 
   useEffect(() => {
     const load = async () => {
@@ -51,8 +54,43 @@ export default function AcomodacaoDetalhe() {
 
   if (!property) return <p className="p-10">Carregando...</p>;
 
+  const handleSync = async () => {
+    if (!icalUrl) {
+      alert("Configure a URL iCal primeiro.");
+      return;
+    }
+
+    setIsSyncing(true);
+
+    try {
+      const response = await fetch("/api/ical/import", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          propertyId: id,
+          icalUrl,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        alert(result.error || "Erro ao sincronizar.");
+        return;
+      }
+
+      alert("Sincronização concluída com sucesso.");
+    } catch (error) {
+      alert("Erro inesperado ao sincronizar.");
+    }
+
+    setIsSyncing(false);
+  };
+
   return (
-    <div className="min-h-screen bg-gray-50 p-10">
+    <div className="min-h-screen bg-white-50 p-10">
       <div className="max-w-3xl mx-auto bg-white p-8 rounded-3xl shadow-lg">
         <h1 className="text-2xl font-semibold mb-6">Configurar Acomodação</h1>
 
@@ -79,12 +117,21 @@ export default function AcomodacaoDetalhe() {
             />
           </div>
 
-          <button
-            onClick={handleSave}
-            className="bg-black text-white px-6 py-2.5 rounded-lg"
-          >
-            Salvar alterações
-          </button>
+          <div className="flex justify-end gap-4 pt-6 border-t mt-8">
+            <button
+              onClick={handleSave}
+              className="px-6 py-2.5 rounded-lg bg-rose-600 text-white hover:bg-rose-700 transition"
+            >
+              Salvar alterações
+            </button>
+
+            <Link
+              href="/acomodacoes"
+              className="inline-flex items-center text-sm text-gray-500 hover:text-gray-800 mb-6"
+            >
+              ← Voltar para acomodações
+            </Link>
+          </div>
         </div>
       </div>
     </div>

@@ -5,7 +5,9 @@ import { createClient } from "@/lib/supabase-browser";
 import { useRouter } from "next/navigation";
 import CalendarView from "@/app/components/CalendarView";
 import ReservationModal from "@/app/components/ReservationModal";
-import Link from "next/link";
+import Card from "@/app//components/ui/Card";
+import Button from "@/app/components/ui/Button";
+import Input from "@/app/components/ui/Input";
 
 type Property = {
   id: string;
@@ -42,11 +44,10 @@ export default function Dashboard() {
   const [newIcalUrl, setNewIcalUrl] = useState("");
 
   const [isLoading, setIsLoading] = useState(true);
-
   const [isSaving, setIsSaving] = useState(false);
 
   // -------------------------------
-  // Carregar usuário e imóveis
+  // Carregar usuário e propriedades
   // -------------------------------
   useEffect(() => {
     const loadData = async () => {
@@ -81,7 +82,7 @@ export default function Dashboard() {
   }, []);
 
   // -------------------------------
-  // Carregar reservas do imóvel selecionado
+  // Carregar reservas
   // -------------------------------
   useEffect(() => {
     if (!selectedProperty) return;
@@ -93,18 +94,15 @@ export default function Dashboard() {
         .eq("property_id", selectedProperty)
         .order("start_date", { ascending: true });
 
-      if (data) {
-        setReservations(data);
-      }
+      if (data) setReservations(data);
     };
 
     loadReservations();
   }, [selectedProperty]);
 
   // -------------------------------
-  // Função de validação de reservas na mesma data.
-  //
-
+  // Conflito de datas
+  // -------------------------------
   const hasConflict = () => {
     const newStart = new Date(startDate);
     const newEnd = new Date(endDate);
@@ -112,7 +110,6 @@ export default function Dashboard() {
     return reservations.some((reservation) => {
       const existingStart = new Date(reservation.start_date);
       const existingEnd = new Date(reservation.end_date);
-
       return newStart < existingEnd && newEnd > existingStart;
     });
   };
@@ -121,12 +118,7 @@ export default function Dashboard() {
   // Criar reserva
   // -------------------------------
   const handleAddReservation = async () => {
-    console.log("Clicou em salvar");
-
-    if (!selectedProperty) {
-      console.log("Nenhum imóvel selecionado");
-      return;
-    }
+    if (!selectedProperty) return;
 
     try {
       setIsSaving(true);
@@ -170,34 +162,22 @@ export default function Dashboard() {
     }
   };
 
-  // -------------------------------
-  // Clique no calendário
-  // -------------------------------
   const handleSelectSlot = (slotInfo: any) => {
     const start = slotInfo.start;
     const end = slotInfo.end;
 
-    const formattedStart = start.toISOString().split("T")[0];
-    const formattedEnd = end.toISOString().split("T")[0];
-
-    setStartDate(formattedStart);
-    setEndDate(formattedEnd);
+    setStartDate(start.toISOString().split("T")[0]);
+    setEndDate(end.toISOString().split("T")[0]);
     setGuestName("");
     setIsModalOpen(true);
   };
 
-  // -------------------------------
-  // Converter reservas para eventos do calendário
-  // -------------------------------
   const events = reservations.map((reservation) => ({
     title: reservation.guest_name,
     start: new Date(reservation.start_date),
     end: new Date(reservation.end_date),
   }));
 
-  // -------------------------------
-  // Criar imóvel
-  // -------------------------------
   const handleAddProperty = async () => {
     const {
       data: { user },
@@ -231,227 +211,89 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex">
-      {/* Sidebar */}
-      <aside className="w-64 bg-white border-r border-gray-200 p-6 flex flex-col shadow-sm">
-        <h1 className="text-2xl font-bold tracking-tight mb-10 text-black">
-          Anfitrion
-        </h1>
+    <main className="flex-1 flex flex-col">
+      {/* Header da página */}
+      <div className="bg-slate-50 border-b border-slate-200 px-8 py-6 flex justify-between items-center">
+        <div>
+          <h1 className="text-2xl font-semibold text-brand-900">Dashboard</h1>
+          <p className="text-sm text-slate-500">Logado como: {email}</p>
+        </div>
 
-        <nav className="space-y-2 text-sm">
-          <Link
-            href="/dashboard"
-            className="block px-3 py-2 rounded-lg hover:bg-gray-100"
-          >
-            Dashboard
-          </Link>
+        <Button
+          onClick={() => {
+            setGuestName("");
+            setStartDate("");
+            setEndDate("");
+            setIsModalOpen(true);
+          }}
+        >
+          Nova Reserva
+        </Button>
+      </div>
 
-          <Link
-            href="/acomodacoes"
-            className="block px-3 py-2 rounded-lg hover:bg-gray-100"
-          >
-            Acomodações
-          </Link>
+      <div className="flex-1 p-8 space-y-8">
+        {/* Tela vazia */}
+        {!isLoading && properties.length === 0 && (
+          <Card>
+            <p className="mb-4 font-medium">
+              Você ainda não cadastrou nenhuma acomodação.
+            </p>
+            <Button onClick={() => setIsPropertyModalOpen(true)}>
+              Adicionar acomodação
+            </Button>
+          </Card>
+        )}
 
-          <Link
-            href="/reservas"
-            className="block px-3 py-2 rounded-lg hover:bg-gray-100"
-          >
-            Reservas
-          </Link>
-        </nav>
-
-        <div className="mt-auto text-xs text-gray-400 pt-8">v0.1 Beta</div>
-      </aside>
-
-      {/* Conteúdo principal */}
-      <main className="flex-1 p-10">
-        <div className="max-w-6xl mx-auto space-y-8">
-          {/* Header */}
-          <div className="flex justify-between items-center pb-6 border-b border-gray-200">
-            <div>
-              <h1 className="text-3xl font-semibold tracking-tight">
-                Dashboard
-              </h1>
-              <p className="text-gray-500 text-sm">Logado como: {email}</p>
-            </div>
-
-            <button
-              onClick={() => {
-                setGuestName("");
-                setStartDate("");
-                setEndDate("");
-                setIsModalOpen(true);
-              }}
-              className="bg-black hover:bg-gray-900 transition text-white px-6 py-2.5 rounded-lg shadow-sm"
-            >
-              Nova Reserva
-            </button>
-          </div>
-
-          {/* Tela vazia */}
-          {!isLoading && properties.length === 0 && (
-            <div className="border p-6 rounded text-center text-gray-600">
-              <p className="mb-2 font-medium">
-                Você ainda não cadastrou nenhuma acomodação.
-              </p>
-              <p className="mb-4">
-                Cadastre um imóvel para começar a criar reservas.
-              </p>
-
-              <button
-                onClick={() => setIsPropertyModalOpen(true)}
-                className="bg-black text-white px-4 py-2 rounded"
-              >
-                Adicionar acomodação
-              </button>
-            </div>
-          )}
-
-          {/* Conteúdo quando há imóveis */}
-          {!isLoading && properties.length > 0 && selectedProperty && (
-            <>
-              <div>
-                <div className="flex items-center gap-4">
-                  <div>
-                    <label className="block mb-2 font-medium">
-                      Acomodação:
-                    </label>
-
-                    <select
-                      className="border p-2 rounded"
-                      value={selectedProperty}
-                      onChange={(e) => setSelectedProperty(e.target.value)}
-                    >
-                      {properties.map((property) => (
-                        <option key={property.id} value={property.id}>
-                          {property.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <button
-                    onClick={() => setIsPropertyModalOpen(true)}
-                    className="mt-6 bg-dark-200 hover:bg-dark-300 px-4 py-2 rounded"
+        {/* Conteúdo principal */}
+        {!isLoading && properties.length > 0 && selectedProperty && (
+          <>
+            <Card>
+              <div className="flex items-end gap-4">
+                <div className="flex-1">
+                  <label className="block mb-2 text-sm font-medium">
+                    Acomodação
+                  </label>
+                  <select
+                    className="w-full border border-slate-300 focus:ring-2 focus:ring-brand-500 focus:border-brand-500 rounded-lg px-4 py-2"
+                    value={selectedProperty}
+                    onChange={(e) => setSelectedProperty(e.target.value)}
                   >
-                    + Novo
-                  </button>
+                    {properties.map((property) => (
+                      <option key={property.id} value={property.id}>
+                        {property.name}
+                      </option>
+                    ))}
+                  </select>
                 </div>
+
+                <Button
+                  variant="secondary"
+                  onClick={() => setIsPropertyModalOpen(true)}
+                >
+                  + Nova
+                </Button>
               </div>
+            </Card>
 
-              {(() => {
-                const property = properties.find(
-                  (p) => p.id === selectedProperty
-                );
+            <Card>
+              <CalendarView events={events} onSelectSlot={handleSelectSlot} />
+            </Card>
+          </>
+        )}
 
-                if (!property) return null;
-
-                return (
-                  <div className="text-sm mt-2">
-                    {property.ical_import_url ? (
-                      <span className="text-green-600">✓ iCal configurado</span>
-                    ) : (
-                      <span className="text-gray-400">
-                        iCal não configurado
-                      </span>
-                    )}
-                  </div>
-                );
-              })()}
-
-              <button
-                onClick={async () => {
-                  const property = properties.find(
-                    (p) => p.id === selectedProperty
-                  );
-                  if (!property?.ical_import_url) {
-                    alert("Configure a URL iCal primeiro.");
-                    return;
-                  }
-
-                  await fetch("/api/ical/import", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                      propertyId: selectedProperty,
-                      icalUrl: property.ical_import_url,
-                    }),
-                  });
-
-                  alert("Sincronização concluída.");
-                }}
-                className="bg-gray-200 px-4 py-2 rounded"
-              >
-                Sincronizar Airbnb
-              </button>
-
-              <div className="mt-4">
-                <CalendarView events={events} onSelectSlot={handleSelectSlot} />
-              </div>
-            </>
-          )}
-
-          {/* Modal Reserva */}
-          <ReservationModal
-            isOpen={isModalOpen}
-            onClose={() => setIsModalOpen(false)}
-            guestName={guestName}
-            setGuestName={setGuestName}
-            startDate={startDate}
-            setStartDate={setStartDate}
-            endDate={endDate}
-            setEndDate={setEndDate}
-            onSave={handleAddReservation}
-            isSaving={isSaving}
-          />
-
-          {/* Modal Imóvel */}
-          {isPropertyModalOpen && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center">
-              <div
-                className="absolute inset-0 bg-black/50"
-                onClick={() => setIsPropertyModalOpen(false)}
-              />
-
-              <div className="relative bg-white p-6 rounded-xl w-96 shadow-xl space-y-4">
-                <h2 className="text-xl font-semibold">Nova acomodação</h2>
-
-                <input
-                  className="w-full border p-2 rounded"
-                  placeholder="Nome do imóvel"
-                  value={newPropertyName}
-                  onChange={(e) => setNewPropertyName(e.target.value)}
-                />
-
-                <input
-                  className="w-full border p-2 rounded"
-                  placeholder="URL iCal do Airbnb (opcional)"
-                  value={newIcalUrl}
-                  onChange={(e) => setNewIcalUrl(e.target.value)}
-                />
-
-                <div className="flex justify-end gap-2">
-                  <button
-                    onClick={() => setIsPropertyModalOpen(false)}
-                    className="px-4 py-2 border rounded"
-                  >
-                    Cancelar
-                  </button>
-
-                  <button
-                    onClick={handleAddProperty}
-                    className="px-4 py-2 bg-black text-white rounded"
-                  >
-                    Salvar
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>{" "}
-        {/* fecha max-w-6xl container */}
-      </main>
-    </div>
+        <ReservationModal
+          isOpen={isModalOpen}
+          onClose={() => setIsModalOpen(false)}
+          guestName={guestName}
+          setGuestName={setGuestName}
+          startDate={startDate}
+          setStartDate={setStartDate}
+          endDate={endDate}
+          setEndDate={setEndDate}
+          onSave={handleAddReservation}
+          isSaving={isSaving}
+        />
+      </div>
+    </main>
   );
 }

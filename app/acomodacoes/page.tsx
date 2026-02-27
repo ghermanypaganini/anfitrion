@@ -65,7 +65,7 @@ export default function AcomodacoesPage() {
               <Link
                 key={property.id}
                 href={`/acomodacoes/${property.id}`}
-                className="bg-white p-6 rounded-2xl shadow-md hover:shadow-lg transition border border-gray-200"
+                className="bg-white p-6 rounded-2xl shadow-sm hover:shadow-xl transition duration-300 hover:shadow-lg transition border border-gray-200 hover:-translate-y-1 transform"
               >
                 <h2 className="text-lg font-semibold mb-2">{property.name}</h2>
 

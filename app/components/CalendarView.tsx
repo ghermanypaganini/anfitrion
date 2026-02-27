@@ -61,8 +61,8 @@ export default function CalendarView({ events, onSelectSlot }) {
         eventPropGetter={(event) => {
           return {
             style: {
-              backgroundColor: "#111111",
-              borderRadius: "6px",
+              backgroundColor: "#E11D48",
+              borderRadius: "8px",
               opacity: 0.9,
               color: "white",
               border: "none",

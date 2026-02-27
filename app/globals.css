@@ -1,26 +1,30 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/* =========================
+   Design System - Anfitrion
+   ========================= */
+
+@theme {
+  /* Brand (Azul marinho) */
+  --color-brand-900: #0f223d;
+  --color-brand-800: #162f54;
+  --color-brand-700: #1f3a64;
+  --color-brand-600: #274c82;
+  --color-brand-500: #2f5fa0;
+  --color-brand-100: #e8eef7;
+
+  /* Accent (Laranja escuro) */
+  --color-accent-900: #7c2d12;
+  --color-accent-800: #9a3412;
+  --color-accent-700: #c2410c;
+  --color-accent-600: #ea580c;
+  --color-accent-500: #f97316;
+  --color-accent-100: #fff1e6;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
+/* Base */
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: #f8fafc;
+  color: #0f172a;
+  font-family: system-ui, -apple-system, sans-serif;
 }
