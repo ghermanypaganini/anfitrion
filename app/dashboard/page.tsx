@@ -8,6 +8,7 @@ import ReservationModal from "@/app/components/ReservationModal";
 import Card from "@/app//components/ui/Card";
 import Button from "@/app/components/ui/Button";
 import Input from "@/app/components/ui/Input";
+import PageHeader from "@/app/components/ui/PageHeader";
 
 type Property = {
   id: string;
@@ -213,23 +214,22 @@ export default function Dashboard() {
   return (
     <main className="flex-1 flex flex-col">
       {/* Header da página */}
-      <div className="bg-slate-50 border-b border-slate-200 px-8 py-6 flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-semibold text-brand-900">Dashboard</h1>
-          <p className="text-sm text-slate-500">Logado como: {email}</p>
-        </div>
-
-        <Button
-          onClick={() => {
-            setGuestName("");
-            setStartDate("");
-            setEndDate("");
-            setIsModalOpen(true);
-          }}
-        >
-          Nova Reserva
-        </Button>
-      </div>
+      <PageHeader
+        title="Dashboard"
+        subtitle={`Logado como: ${email}`}
+        action={
+          <Button
+            onClick={() => {
+              setGuestName("");
+              setStartDate("");
+              setEndDate("");
+              setIsModalOpen(true);
+            }}
+          >
+            Nova Reserva
+          </Button>
+        }
+      />
 
       <div className="flex-1 p-8 space-y-8">
         {/* Tela vazia */}
@@ -265,13 +265,6 @@ export default function Dashboard() {
                     ))}
                   </select>
                 </div>
-
-                <Button
-                  variant="secondary"
-                  onClick={() => setIsPropertyModalOpen(true)}
-                >
-                  + Nova
-                </Button>
               </div>
             </Card>
 

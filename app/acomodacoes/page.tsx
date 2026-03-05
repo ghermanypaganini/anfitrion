@@ -3,18 +3,23 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase-browser";
 import Link from "next/link";
+import PageHeader from "@/app/components/ui/PageHeader";
+import Card from "@/app/components/ui/Card";
+import Button from "@/app/components/ui/Button";
+import Badge from "@/app/components/ui/Badge";
 
 type Property = {
   id: string;
   name: string;
+  location: string | null;
+  status: string;
+  booking_ical_url: string | null;
   ical_import_url: string | null;
 };
 
 export default function AcomodacoesPage() {
   const supabase = createClient();
-
   const [properties, setProperties] = useState<Property[]>([]);
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const load = async () => {
@@ -24,63 +29,86 @@ export default function AcomodacoesPage() {
         .order("created_at", { ascending: false });
 
       if (data) setProperties(data);
-
-      setLoading(false);
     };
 
     load();
   }, []);
 
+  const statusVariant = (status: string) => {
+    switch (status) {
+      case "active":
+        return "success";
+      case "inactive":
+        return "danger";
+      case "maintenance":
+        return "warning";
+      case "cleaning":
+        return "default";
+      default:
+        return "default";
+    }
+  };
+
+  const statusLabel = (status: string) => {
+    switch (status) {
+      case "active":
+        return "Aberta";
+      case "inactive":
+        return "Fechada";
+      case "maintenance":
+        return "Manutenção";
+      case "cleaning":
+        return "Limpeza";
+      default:
+        return status;
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-gray-50 p-10">
-      <div className="max-w-6xl mx-auto">
-        {/* Header */}
-        <div className="flex justify-between items-center mb-10">
-          <div>
-            <h1 className="text-3xl font-semibold tracking-tight">
-              Acomodações
-            </h1>
-            <p className="text-gray-500 text-sm">
-              Gerencie suas unidades reserváveis
-            </p>
-          </div>
-
-          <Link
-            href="/dashboard"
-            className="bg-black text-white px-6 py-2.5 rounded-lg"
-          >
-            + Nova Acomodação
+    <main className="flex-1 flex flex-col">
+      <PageHeader
+        title="Acomodações"
+        subtitle="Gerencie suas acomodações"
+        action={
+          <Link href="/acomodacoes/nova">
+            <Button>Nova acomodação</Button>
           </Link>
-        </div>
+        }
+      />
 
-        {loading ? (
-          <p>Carregando...</p>
-        ) : properties.length === 0 ? (
-          <div className="bg-white p-10 rounded-2xl shadow text-center text-gray-500">
-            Nenhuma acomodação cadastrada ainda.
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {properties.map((property) => (
-              <Link
-                key={property.id}
-                href={`/acomodacoes/${property.id}`}
-                className="bg-white p-6 rounded-2xl shadow-sm hover:shadow-xl transition duration-300 hover:shadow-lg transition border border-gray-200 hover:-translate-y-1 transform"
-              >
-                <h2 className="text-lg font-semibold mb-2">{property.name}</h2>
+      <div className="p-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {properties.map((property) => (
+          <Card key={property.id}>
+            <div className="flex justify-between items-start">
+              <div>
+                <h2 className="text-lg font-semibold text-brand-900">
+                  {property.name}
+                </h2>
+                {property.location && (
+                  <p className="text-sm text-slate-500 mt-1">
+                    {property.location}
+                  </p>
+                )}
+              </div>
 
-                <div className="text-sm">
-                  {property.ical_import_url ? (
-                    <span className="text-green-600">✓ iCal configurado</span>
-                  ) : (
-                    <span className="text-gray-400">iCal não configurado</span>
-                  )}
-                </div>
+              <Badge variant={statusVariant(property.status)}>
+                {statusLabel(property.status)}
+              </Badge>
+            </div>
+
+            <div className="mt-4 text-sm text-slate-500 space-y-1">
+              <p>Airbnb iCal: {property.ical_import_url ? "✓" : "—"}</p>
+              <p>Booking iCal: {property.booking_ical_url ? "✓" : "—"}</p>
+            </div>
+
+            <div className="mt-6">
+              <Link href={`/acomodacoes/${property.id}`}>
+                <Button variant="secondary">Editar</Button>
               </Link>
-            ))}
-          </div>
-        )}
+            </div>
+          </Card>
+        ))}
       </div>
-    </div>
+    </main>
   );
 }
