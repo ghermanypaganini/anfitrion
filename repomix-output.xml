@@ -1,0 +1,3248 @@
+This file is a merged representation of the entire codebase, combined into a single document by Repomix.
+
+<file_summary>
+This section contains a summary of this file.
+
+<purpose>
+This file contains a packed representation of the entire repository's contents.
+It is designed to be easily consumable by AI systems for analysis, code review,
+or other automated processes.
+</purpose>
+
+<file_format>
+The content is organized as follows:
+1. This summary section
+2. Repository information
+3. Directory structure
+4. Repository files (if enabled)
+5. Multiple file entries, each consisting of:
+  - File path as an attribute
+  - Full contents of the file
+</file_format>
+
+<usage_guidelines>
+- This file should be treated as read-only. Any changes should be made to the
+  original repository files, not this packed version.
+- When processing this file, use the file path to distinguish
+  between different files in the repository.
+- Be aware that this file may contain sensitive information. Handle it with
+  the same level of security as you would the original repository.
+</usage_guidelines>
+
+<notes>
+- Some files may have been excluded based on .gitignore rules and Repomix's configuration
+- Binary files are not included in this packed representation. Please refer to the Repository Structure section for a complete list of file paths, including binary files
+- Files matching patterns in .gitignore are excluded
+- Files matching default ignore patterns are excluded
+- Files are sorted by Git change count (files with more changes are at the bottom)
+</notes>
+
+</file_summary>
+
+<directory_structure>
+.gitignore
+app/acomodacoes/[id]/page.tsx
+app/acomodacoes/nova/page.tsx
+app/acomodacoes/page.tsx
+app/AGENTS.md
+app/api/ical/import/route.ts
+app/components/CalendarView.tsx
+app/components/layout/Header.tsx
+app/components/layout/Sidebar.tsx
+app/components/ReservationModal.tsx
+app/components/ui/Badge.tsx
+app/components/ui/Button.tsx
+app/components/ui/Card.tsx
+app/components/ui/Input.tsx
+app/components/ui/PageHeader.tsx
+app/components/ui/StatCard.tsx
+app/dashboard/page.tsx
+app/favicon.ico
+app/globals.css
+app/layout.tsx
+app/login/page.tsx
+app/page.tsx
+app/reservas/nova/page.tsx
+app/reservas/page.tsx
+app/signup/page.tsx
+docs/CLAUDE.md
+eslint.config.mjs
+lib/supabase-browser.ts
+lib/supabase.ts
+next.config.ts
+package.json
+postcss.config.mjs
+public/file.svg
+public/globe.svg
+public/next.svg
+public/vercel.svg
+public/window.svg
+README.md
+tsconfig.json
+</directory_structure>
+
+<files>
+This section contains the contents of the repository's files.
+
+<file path="app/AGENTS.md">
+# Anfitrion – AI Agents Guide
+
+This document defines how AI coding agents should work in this repository.
+
+---
+
+# Project Overview
+
+Anfitrion is a lightweight SaaS for managing short-term rental properties (Airbnb, cabins, small inns).
+
+Primary users:
+
+- Individual hosts
+- Small property managers (1–10 properties)
+
+Core features:
+
+- Reservation calendar
+- Property management
+- Guest management
+- iCal integration (Airbnb / Booking)
+- Reservation tracking
+
+Tech stack:
+
+Frontend
+
+- Next.js (App Router)
+- React
+- TypeScript
+- TailwindCSS
+
+Backend
+
+- Supabase
+- Postgres
+
+UI
+
+- Tailwind
+- Custom UI components in `/components/ui`
+
+Calendar
+
+- react-big-calendar
+
+---
+
+# Code Architecture
+
+Project structure:
+
+app/
+dashboard/
+acomodacoes/
+reservas/
+hospedes/
+configuracoes/
+
+components/
+ui/
+layout/
+
+lib/
+supabase-browser.ts
+
+Rules:
+
+- UI components must stay in `/components/ui`
+- Layout components must stay in `/components/layout`
+- Pages must remain inside `/app`
+- Database access must go through Supabase client
+
+---
+
+# Database Principles
+
+Tables:
+
+properties
+reservations
+guests
+services
+reservation_services
+
+Rules:
+
+- Always reference properties using `property_id`
+- Use ISO date format for reservations
+- Prevent reservation overlap using Postgres constraints
+
+Reservation structure:
+
+id
+property_id
+guest_id
+label
+start_date
+end_date
+status
+origin
+notes
+created_at
+
+---
+
+# Calendar Rules
+
+Calendar must:
+
+- support month view
+- support week view
+- show reservations per property
+- display reservations visually centered
+- use color based on reservation status
+
+Reservation status colors:
+
+confirmed → orange
+pending → blue
+cancelled → gray
+completed → green
+
+---
+
+# UI Guidelines
+
+Design goals:
+
+- Minimal
+- Clean SaaS style
+- Fast interface
+
+Primary palette:
+
+Navy blue
+Dark orange
+
+Components should use Tailwind utilities.
+
+Avoid heavy UI libraries.
+
+---
+
+# Coding Guidelines
+
+Prefer:
+
+- small components
+- readable code
+- explicit typing
+
+Avoid:
+
+- overly abstract patterns
+- unnecessary dependencies
+- large monolithic components
+
+---
+
+# AI Agent Instructions
+
+When editing code:
+
+1. Do not rewrite entire files unless necessary
+2. Prefer minimal diffs
+3. Preserve existing architecture
+4. Maintain TypeScript types
+5. Follow Tailwind style conventions
+
+When creating features:
+
+1. Start from data model
+2. Add UI
+3. Connect Supabase
+4. Validate UX
+
+---
+
+# Future Modules
+
+Planned features:
+
+- Guest CRM
+- Cleaning checklist
+- Service add-ons
+- Admin console
+- Payment tracking
+</file>
+
+<file path="app/components/ui/StatCard.tsx">
+type StatCardProps = {
+  title: string;
+  value: string | number;
+  icon?: React.ReactNode;
+};
+
+export default function StatCard({ title, value, icon }: StatCardProps) {
+  return (
+    <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm flex items-center justify-between">
+      <div>
+        <p className="text-sm text-gray-500">{title}</p>
+        <p className="text-3xl font-semibold mt-1">{value}</p>
+      </div>
+      {icon != null && <div className="text-2xl">{icon}</div>}
+    </div>
+  );
+}
+</file>
+
+<file path="app/reservas/nova/page.tsx">
+"use client";
+
+import { useEffect, useState } from "react";
+import { createClient } from "@/lib/supabase-browser";
+import { useRouter } from "next/navigation";
+
+import PageHeader from "@/app/components/ui/PageHeader";
+import Card from "@/app/components/ui/Card";
+import Button from "@/app/components/ui/Button";
+import Input from "@/app/components/ui/Input";
+
+type Property = {
+  id: string;
+  name: string;
+};
+
+type Guest = {
+  id: string;
+  name: string;
+};
+
+export default function NovaReservaPage() {
+  const supabase = createClient();
+  const router = useRouter();
+
+  const [properties, setProperties] = useState<Property[]>([]);
+  const [guests, setGuests] = useState<Guest[]>([]);
+
+  const [propertyId, setPropertyId] = useState("");
+  const [guestId, setGuestId] = useState("");
+
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+
+  const [guestCount, setGuestCount] = useState(1);
+
+  const [origin, setOrigin] = useState("direct");
+  const [status, setStatus] = useState("confirmed");
+
+  const [totalPrice, setTotalPrice] = useState("");
+  const [notes, setNotes] = useState("");
+
+  useEffect(() => {
+    const loadData = async () => {
+      const { data: propertiesData } = await supabase
+        .from("properties")
+        .select("id,name");
+
+      if (propertiesData) {
+        setProperties(propertiesData);
+      }
+
+      const { data: guestsData } = await supabase
+        .from("guests")
+        .select("id,name");
+
+      if (guestsData) {
+        setGuests(guestsData);
+      }
+    };
+
+    loadData();
+  }, []);
+
+  const handleSave = async () => {
+    const { error } = await supabase.from("reservations").insert({
+      property_id: propertyId,
+      guest_id: guestId,
+      start_date: startDate,
+      end_date: endDate,
+      guest_count: guestCount,
+      origin,
+      status,
+      total_price: totalPrice ? Number(totalPrice) : null,
+      notes,
+    });
+
+    if (error) {
+      alert(error.message);
+      return;
+    }
+
+    router.push("/reservas");
+  };
+
+  return (
+    <main className="flex-1 flex flex-col">
+      <PageHeader title="Nova reserva" subtitle="Crie uma nova reserva" />
+
+      <div className="p-8 max-w-xl">
+        <Card>
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium">Acomodação</label>
+
+              <select
+                value={propertyId}
+                onChange={(e) => setPropertyId(e.target.value)}
+                className="w-full border rounded-lg px-4 py-2"
+              >
+                <option value="">Selecione</option>
+
+                {properties.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="text-sm font-medium">Hóspede</label>
+
+              <select
+                value={guestId}
+                onChange={(e) => setGuestId(e.target.value)}
+                className="w-full border rounded-lg px-4 py-2"
+              >
+                <option value="">Selecione</option>
+
+                {guests.map((g) => (
+                  <option key={g.id} value={g.id}>
+                    {g.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <Input
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              placeholder="Check-in"
+            />
+
+            <Input
+              type="date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              placeholder="Check-out"
+            />
+
+            <Input
+              type="number"
+              value={guestCount}
+              onChange={(e) => setGuestCount(Number(e.target.value))}
+              placeholder="Número de hóspedes"
+            />
+
+            <Input
+              type="number"
+              value={totalPrice}
+              onChange={(e) => setTotalPrice(e.target.value)}
+              placeholder="Valor da reserva"
+            />
+
+            <div>
+              <label className="text-sm font-medium">Origem</label>
+
+              <select
+                value={origin}
+                onChange={(e) => setOrigin(e.target.value)}
+                className="w-full border rounded-lg px-4 py-2"
+              >
+                <option value="direct">Direto</option>
+                <option value="airbnb">Airbnb</option>
+                <option value="booking">Booking</option>
+                <option value="whatsapp">WhatsApp</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="text-sm font-medium">Status</label>
+
+              <select
+                value={status}
+                onChange={(e) => setStatus(e.target.value)}
+                className="w-full border rounded-lg px-4 py-2"
+              >
+                <option value="confirmed">Confirmada</option>
+                <option value="pending">Pendente</option>
+                <option value="blocked">Bloqueio</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="text-sm font-medium">Observação</label>
+
+              <textarea
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                className="w-full border rounded-lg px-4 py-2"
+              />
+            </div>
+
+            <Button onClick={handleSave}>Salvar reserva</Button>
+          </div>
+        </Card>
+      </div>
+    </main>
+  );
+}
+</file>
+
+<file path="app/reservas/page.tsx">
+"use client";
+
+import { useEffect, useState } from "react";
+import { createClient } from "@/lib/supabase-browser";
+import Card from "@/app/components/ui/Card";
+import PageHeader from "@/app/components/ui/PageHeader";
+
+type Reservation = {
+  id: string;
+  label: string;
+  start_date: string;
+  end_date: string;
+  status: string;
+  origin: string;
+  properties: {
+    name: string;
+  };
+};
+
+export default function ReservasPage() {
+  const supabase = createClient();
+
+  const [reservations, setReservations] = useState<Reservation[]>([]);
+
+  useEffect(() => {
+    const loadReservations = async () => {
+      const { data } = await supabase
+        .from("reservations")
+        .select(
+          `
+          id,
+          label,
+          start_date,
+          end_date,
+          status,
+          origin,
+          properties ( name )
+        `
+        )
+        .order("start_date", { ascending: true });
+
+      if (data) setReservations(data);
+    };
+
+    loadReservations();
+  }, []);
+
+  return (
+    <main className="flex-1 flex flex-col">
+      <PageHeader title="Reservas" subtitle="Gerencie todas as reservas" />
+
+      <div className="p-8">
+        <Card>
+          <table className="w-full text-sm">
+            <thead className="border-b">
+              <tr className="text-left">
+                <th className="py-2">Identificador</th>
+                <th>Acomodação</th>
+                <th>Check-in</th>
+                <th>Check-out</th>
+                <th>Status</th>
+                <th>Origem</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {reservations.map((r) => (
+                <tr key={r.id} className="border-b hover:bg-gray-50">
+                  <td className="py-2">{r.label}</td>
+                  <td>{r.properties?.name}</td>
+                  <td>{r.start_date}</td>
+                  <td>{r.end_date}</td>
+                  <td>{r.status}</td>
+                  <td>{r.origin}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </Card>
+      </div>
+    </main>
+  );
+}
+</file>
+
+<file path="docs/CLAUDE.md">
+# Anfitrion — Project Context Documentation
+
+This document describes the full context of the Anfitrion project.
+
+It should be used by:
+
+- new developers joining the project
+- AI coding agents (Codex, Claude, ChatGPT)
+- contributors
+- maintainers
+
+The goal is to ensure full understanding of the system architecture, product vision, and development status.
+
+---
+
+# 1. Project Overview
+
+Anfitrion is a lightweight SaaS designed to manage short-term rental properties.
+
+Target users:
+
+- Airbnb hosts
+- Cabin owners
+- Small inns
+- Property managers managing up to 10 units
+
+The goal is to provide a **simple and intuitive system for small hosts**, avoiding the complexity and high cost of traditional PMS platforms.
+
+Core principles:
+
+- simple
+- visual
+- intuitive
+- mobile-friendly
+- low cost
+
+---
+
+# 2. Product Vision
+
+Most small hosts currently manage reservations using:
+
+- spreadsheets
+- WhatsApp
+- manual notes
+- Airbnb interface only
+
+Anfitrion solves this by providing:
+
+- a centralized calendar
+- guest management
+- reservation tracking
+- operational dashboard
+
+Future vision:
+
+An affordable **mini PMS for small property managers**.
+
+---
+
+# 3. Target Market
+
+Primary audience:
+
+Hosts with:
+
+1 to 10 properties
+
+Examples:
+
+- cabins
+- chalets
+- small guest houses
+- apartments
+- rural tourism stays
+
+Secondary audience:
+
+Property managers managing multiple Airbnb accounts.
+
+---
+
+# 4. Technology Stack
+
+Frontend:
+
+- Next.js (App Router)
+- React
+- TypeScript
+- TailwindCSS
+
+UI system:
+
+- custom UI components
+- Tailwind based
+- mobile-first design
+
+Calendar:
+
+- react-big-calendar
+
+Backend:
+
+- Supabase
+
+Database:
+
+- PostgreSQL
+
+Authentication:
+
+- Supabase Auth
+
+---
+
+# 5. Core Product Modules
+
+Current modules:
+
+Dashboard
+Properties (Acomodações)
+Reservations
+Guests (planned)
+Settings
+
+---
+
+# 6. Current Database Schema
+
+## properties
+
+Represents each accommodation unit.
+
+Examples:
+
+Cabana A
+Cabana B
+Apartamento 101
+
+Fields:
+
+id  
+user_id  
+name  
+status  
+location  
+co_host  
+airbnb_ical_url  
+booking_ical_url  
+created_at
+
+---
+
+## reservations
+
+Represents a reservation period.
+
+Fields:
+
+id  
+property_id  
+guest_id  
+label  
+start_date  
+end_date  
+status  
+origin  
+notes  
+created_at
+
+Important:
+
+Reservation overlap is prevented using a PostgreSQL constraint.
+
+---
+
+## guests (planned)
+
+Represents guest profiles.
+
+Fields:
+
+id  
+name  
+phone  
+email  
+cpf  
+address  
+created_at
+
+Guests may have multiple reservations.
+
+---
+
+## services (planned)
+
+Represents optional services offered by the property.
+
+Examples:
+
+breakfast  
+tour  
+cleaning  
+late checkout
+
+Fields:
+
+id  
+name  
+price
+
+---
+
+## reservation_services (planned)
+
+Relationship between reservations and services.
+
+Fields:
+
+id  
+reservation_id  
+service_id  
+price
+
+---
+
+# 7. Reservation Logic
+
+Reservations include:
+
+label
+
+Example:
+
+"Casal de Floripa"
+
+This is used as the main visual identifier in the calendar.
+
+Guests can optionally be attached to reservations.
+
+---
+
+# 8. Calendar System
+
+The calendar is the central UI of the product.
+
+Library used:
+
+react-big-calendar
+
+Supported views:
+
+month  
+week
+
+Visual improvements implemented:
+
+- centered reservation bars
+- diagonal edges for check-in / check-out
+- color by reservation status
+
+Future improvements:
+
+- timeline per property
+- cleaning blocks
+- maintenance blocks
+
+---
+
+# 9. Dashboard
+
+The dashboard contains:
+
+Stat cards
+Reservation calendar
+
+Cards planned:
+
+Reservations today  
+Check-ins today  
+Check-outs today  
+Monthly occupancy
+
+Purpose:
+
+Provide operational visibility.
+
+---
+
+# 10. UI Design Principles
+
+The UI must be:
+
+friendly  
+colorful  
+intuitive
+
+Reference inspirations:
+
+Airbnb Host Dashboard  
+Notion  
+Stripe Dashboard
+
+Primary palette:
+
+Navy blue  
+Dark orange
+
+Status colors:
+
+confirmed → green  
+pending → blue  
+cancelled → red
+
+Components used:
+
+Card  
+Button  
+Input  
+Select  
+Modal  
+StatCard  
+Table
+
+---
+
+# 11. UX Principles
+
+Design rules:
+
+mobile-first  
+minimal cognitive load  
+large touch targets  
+clear visual feedback
+
+Hosts should understand the system without reading documentation.
+
+---
+
+# 12. Current Implemented Features
+
+Working features:
+
+Authentication via Supabase  
+Property creation  
+Reservation creation  
+Calendar display  
+Reservation conflict detection  
+Database overlap protection  
+Responsive layout  
+Sidebar navigation  
+Dashboard calendar
+
+---
+
+# 13. Current Limitations
+
+Features not yet implemented:
+
+Guest CRM  
+Reservation editing  
+Reservation table view  
+Cleaning workflow  
+Booking.com integration  
+Airbnb iCal sync automation  
+Admin console  
+Payment tracking
+
+---
+
+# 14. Planned Roadmap
+
+Phase 1 (MVP)
+
+Reservation calendar  
+Property management  
+Manual reservations  
+Dashboard
+
+Phase 2
+
+Guest CRM  
+Reservation editing  
+Operational dashboard
+
+Phase 3
+
+Services  
+Cleaning workflow  
+Booking integration
+
+Phase 4
+
+Admin panel  
+Billing  
+Multi-user teams
+
+---
+
+# 15. Development Workflow
+
+The project uses an AI-assisted workflow.
+
+Roles:
+
+ChatGPT
+Architecture and product design
+
+Cursor + Codex
+Code generation
+
+Claude
+Secondary AI coding assistant
+
+GitHub
+Version control
+
+---
+
+# 16. Repository Structure
+
+# Anfitrion — Project Context Documentation
+
+This document describes the full context of the Anfitrion project.
+
+It should be used by:
+
+- new developers joining the project
+- AI coding agents (Codex, Claude, ChatGPT)
+- contributors
+- maintainers
+
+The goal is to ensure full understanding of the system architecture, product vision, and development status.
+
+---
+
+# 1. Project Overview
+
+Anfitrion is a lightweight SaaS designed to manage short-term rental properties.
+
+Target users:
+
+- Airbnb hosts
+- Cabin owners
+- Small inns
+- Property managers managing up to 10 units
+
+The goal is to provide a **simple and intuitive system for small hosts**, avoiding the complexity and high cost of traditional PMS platforms.
+
+Core principles:
+
+- simple
+- visual
+- intuitive
+- mobile-friendly
+- low cost
+
+---
+
+# 2. Product Vision
+
+Most small hosts currently manage reservations using:
+
+- spreadsheets
+- WhatsApp
+- manual notes
+- Airbnb interface only
+
+Anfitrion solves this by providing:
+
+- a centralized calendar
+- guest management
+- reservation tracking
+- operational dashboard
+
+Future vision:
+
+An affordable **mini PMS for small property managers**.
+
+---
+
+# 3. Target Market
+
+Primary audience:
+
+Hosts with:
+
+1 to 10 properties
+
+Examples:
+
+- cabins
+- chalets
+- small guest houses
+- apartments
+- rural tourism stays
+
+Secondary audience:
+
+Property managers managing multiple Airbnb accounts.
+
+---
+
+# 4. Technology Stack
+
+Frontend:
+
+- Next.js (App Router)
+- React
+- TypeScript
+- TailwindCSS
+
+UI system:
+
+- custom UI components
+- Tailwind based
+- mobile-first design
+
+Calendar:
+
+- react-big-calendar
+
+Backend:
+
+- Supabase
+
+Database:
+
+- PostgreSQL
+
+Authentication:
+
+- Supabase Auth
+
+---
+
+# 5. Core Product Modules
+
+Current modules:
+
+Dashboard
+Properties (Acomodações)
+Reservations
+Guests (planned)
+Settings
+
+---
+
+# 6. Current Database Schema
+
+## properties
+
+Represents each accommodation unit.
+
+Examples:
+
+Cabana A
+Cabana B
+Apartamento 101
+
+Fields:
+
+id  
+user_id  
+name  
+status  
+location  
+co_host  
+airbnb_ical_url  
+booking_ical_url  
+created_at
+
+---
+
+## reservations
+
+Represents a reservation period.
+
+Fields:
+
+id  
+property_id  
+guest_id  
+label  
+start_date  
+end_date  
+status  
+origin  
+notes  
+created_at
+
+Important:
+
+Reservation overlap is prevented using a PostgreSQL constraint.
+
+---
+
+## guests (planned)
+
+Represents guest profiles.
+
+Fields:
+
+id  
+name  
+phone  
+email  
+cpf  
+address  
+created_at
+
+Guests may have multiple reservations.
+
+---
+
+## services (planned)
+
+Represents optional services offered by the property.
+
+Examples:
+
+breakfast  
+tour  
+cleaning  
+late checkout
+
+Fields:
+
+id  
+name  
+price
+
+---
+
+## reservation_services (planned)
+
+Relationship between reservations and services.
+
+Fields:
+
+id  
+reservation_id  
+service_id  
+price
+
+---
+
+# 7. Reservation Logic
+
+Reservations include:
+
+label
+
+Example:
+
+"Casal de Floripa"
+
+This is used as the main visual identifier in the calendar.
+
+Guests can optionally be attached to reservations.
+
+---
+
+# 8. Calendar System
+
+The calendar is the central UI of the product.
+
+Library used:
+
+react-big-calendar
+
+Supported views:
+
+month  
+week
+
+Visual improvements implemented:
+
+- centered reservation bars
+- diagonal edges for check-in / check-out
+- color by reservation status
+
+Future improvements:
+
+- timeline per property
+- cleaning blocks
+- maintenance blocks
+
+---
+
+# 9. Dashboard
+
+The dashboard contains:
+
+Stat cards
+Reservation calendar
+
+Cards planned:
+
+Reservations today  
+Check-ins today  
+Check-outs today  
+Monthly occupancy
+
+Purpose:
+
+Provide operational visibility.
+
+---
+
+# 10. UI Design Principles
+
+The UI must be:
+
+friendly  
+colorful  
+intuitive
+
+Reference inspirations:
+
+Airbnb Host Dashboard  
+Notion  
+Stripe Dashboard
+
+Primary palette:
+
+Navy blue  
+Dark orange
+
+Status colors:
+
+confirmed → green  
+pending → blue  
+cancelled → red
+
+Components used:
+
+Card  
+Button  
+Input  
+Select  
+Modal  
+StatCard  
+Table
+
+---
+
+# 11. UX Principles
+
+Design rules:
+
+mobile-first  
+minimal cognitive load  
+large touch targets  
+clear visual feedback
+
+Hosts should understand the system without reading documentation.
+
+---
+
+# 12. Current Implemented Features
+
+Working features:
+
+Authentication via Supabase  
+Property creation  
+Reservation creation  
+Calendar display  
+Reservation conflict detection  
+Database overlap protection  
+Responsive layout  
+Sidebar navigation  
+Dashboard calendar
+
+---
+
+# 13. Current Limitations
+
+Features not yet implemented:
+
+Guest CRM  
+Reservation editing  
+Reservation table view  
+Cleaning workflow  
+Booking.com integration  
+Airbnb iCal sync automation  
+Admin console  
+Payment tracking
+
+---
+
+# 14. Planned Roadmap
+
+Phase 1 (MVP)
+
+Reservation calendar  
+Property management  
+Manual reservations  
+Dashboard
+
+Phase 2
+
+Guest CRM  
+Reservation editing  
+Operational dashboard
+
+Phase 3
+
+Services  
+Cleaning workflow  
+Booking integration
+
+Phase 4
+
+Admin panel  
+Billing  
+Multi-user teams
+
+---
+
+# 15. Development Workflow
+
+The project uses an AI-assisted workflow.
+
+Roles:
+
+ChatGPT
+Architecture and product design
+
+Cursor + Codex
+Code generation
+
+Claude
+Secondary AI coding assistant
+
+GitHub
+Version control
+
+---
+
+# 16. Repository Structure
+
+app/
+dashboard
+acomodacoes
+reservas
+hospedes
+configuracoes
+
+components/
+ui/
+layout/
+
+lib/
+supabase-browser.ts
+
+docs/
+
+# 17. Coding Guidelines
+
+Use TypeScript.
+
+Prefer small components.
+
+Avoid unnecessary abstractions.
+
+UI components must live in:
+/components/ui
+
+Layout components must live in:
+/components/layout
+
+Database access must go through Supabase client.
+
+---
+
+# 18. Security Principles
+
+All reservations must be tied to:
+
+user_id
+
+Data isolation between users must be enforced.
+
+Reservation overlap must be prevented at database level.
+
+---
+
+# 19. Long-Term Vision
+
+Anfitrion aims to become:
+
+The simplest PMS for small property hosts.
+
+Key differentiators:
+
+ease of use  
+low cost  
+visual clarity
+
+---
+
+# 20. AI Agent Instructions
+
+AI agents should:
+
+preserve architecture  
+avoid large refactors  
+prefer minimal diffs  
+follow Tailwind styling  
+maintain TypeScript types
+
+When adding features:
+
+1. design data model
+2. implement UI
+3. connect Supabase
+4. validate UX
+
+---
+
+End of document.
+</file>
+
+<file path="app/acomodacoes/nova/page.tsx">
+"use client";
+
+import { useState } from "react";
+import { createClient } from "@/lib/supabase-browser";
+import { useRouter } from "next/navigation";
+import PageHeader from "@/app/components/ui/PageHeader";
+import Card from "@/app/components/ui/Card";
+import Button from "@/app/components/ui/Button";
+import Input from "@/app/components/ui/Input";
+
+export default function NovaAcomodacaoPage() {
+  const supabase = createClient();
+  const router = useRouter();
+
+  const [name, setName] = useState("");
+  const [location, setLocation] = useState("");
+  const [status, setStatus] = useState("active");
+  const [airbnbIcal, setAirbnbIcal] = useState("");
+  const [bookingIcal, setBookingIcal] = useState("");
+  const [coHost, setCoHost] = useState("");
+
+  const handleSave = async () => {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) return;
+
+    const { error } = await supabase.from("properties").insert({
+      name,
+      location,
+      status,
+      user_id: user.id,
+      ical_import_url: airbnbIcal || null,
+      booking_ical_url: bookingIcal || null,
+      co_host: coHost || null,
+    });
+
+    if (error) {
+      alert(error.message);
+      return;
+    }
+
+    router.push("/acomodacoes");
+  };
+
+  return (
+    <main className="flex-1 flex flex-col">
+      <PageHeader
+        title="Nova acomodação"
+        subtitle="Cadastre uma nova acomodação"
+      />
+
+      <div className="p-8 max-w-xl">
+        <Card>
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium">Nome</label>
+              <Input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Ex: Cabana do Lago"
+              />
+            </div>
+
+            <div>
+              <label className="text-sm font-medium">Localização</label>
+              <Input
+                value={location}
+                onChange={(e) => setLocation(e.target.value)}
+                placeholder="Cidade ou endereço"
+              />
+            </div>
+
+            <div>
+              <label className="text-sm font-medium">Status</label>
+
+              <select
+                value={status}
+                onChange={(e) => setStatus(e.target.value)}
+                className="w-full border border-slate-300 rounded-lg px-4 py-2"
+              >
+                <option value="active">Aberta</option>
+                <option value="inactive">Fechada</option>
+                <option value="maintenance">Manutenção</option>
+                <option value="cleaning">Limpeza</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="text-sm font-medium">URL iCal Airbnb</label>
+              <Input
+                value={airbnbIcal}
+                onChange={(e) => setAirbnbIcal(e.target.value)}
+                placeholder="https://..."
+              />
+            </div>
+
+            <div>
+              <label className="text-sm font-medium">URL iCal Booking</label>
+              <Input
+                value={bookingIcal}
+                onChange={(e) => setBookingIcal(e.target.value)}
+                placeholder="https://..."
+              />
+            </div>
+
+            <div>
+              <label className="text-sm font-medium">Co-host (email)</label>
+              <Input
+                value={coHost}
+                onChange={(e) => setCoHost(e.target.value)}
+                placeholder="email do co-anfitrião"
+              />
+            </div>
+
+            <div className="flex gap-3 pt-4">
+              <Button onClick={handleSave}>Salvar acomodação</Button>
+
+              <Button
+                variant="ghost"
+                onClick={() => router.push("/acomodacoes")}
+              >
+                Cancelar
+              </Button>
+            </div>
+          </div>
+        </Card>
+      </div>
+    </main>
+  );
+}
+</file>
+
+<file path="app/components/layout/Header.tsx">
+"use client";
+
+import { useState } from "react";
+import { createClient } from "@/lib/supabase-browser";
+import { useRouter } from "next/navigation";
+
+export default function Header({ email }: { email: string | null }) {
+  const [open, setOpen] = useState(false);
+  const supabase = createClient();
+  const router = useRouter();
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    router.push("/login");
+  };
+
+  const initials = email?.substring(0, 2).toUpperCase() ?? "AP";
+
+  return (
+    <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8">
+      <div>
+        <h2 className="text-xl font-semibold text-brand-900">Dashboard</h2>
+      </div>
+
+      <div className="relative">
+        <button
+          onClick={() => setOpen(!open)}
+          className="w-10 h-10 rounded-full bg-brand-700 text-white flex items-center justify-center font-semibold"
+        >
+          {initials}
+        </button>
+
+        {open && (
+          <div className="absolute right-0 mt-2 w-48 bg-white shadow-lg border border-slate-200 rounded-lg py-2 text-sm">
+            <button
+              onClick={() => router.push("/configuracoes")}
+              className="block w-full text-left px-4 py-2 hover:bg-slate-100"
+            >
+              Configurações
+            </button>
+            <button
+              onClick={handleLogout}
+              className="block w-full text-left px-4 py-2 hover:bg-slate-100 text-red-600"
+            >
+              Logout
+            </button>
+          </div>
+        )}
+      </div>
+    </header>
+  );
+}
+</file>
+
+<file path="app/components/layout/Sidebar.tsx">
+"use client";
+
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+
+export default function Sidebar() {
+  const pathname = usePathname();
+
+  const linkClasses = (path: string) =>
+    `block px-4 py-2 rounded-lg transition ${
+      pathname === path
+        ? "bg-brand-700 text-white"
+        : "text-brand-100 hover:bg-brand-800 hover:text-white"
+    }`;
+
+  return (
+    <aside className="w-64 bg-brand-900 text-white flex flex-col p-6">
+      <div className="mb-10">
+        <h1 className="text-2xl font-bold tracking-tight">
+          Anfitri<span className="text-accent-500">on</span>
+        </h1>
+        <p className="text-xs text-brand-100 mt-1">
+          Gestão inteligente para anfitriões
+        </p>
+      </div>
+
+      <nav className="space-y-2 text-sm">
+        <Link href="/dashboard" className={linkClasses("/dashboard")}>
+          Dashboard
+        </Link>
+        <Link href="/acomodacoes" className={linkClasses("/acomodacoes")}>
+          Acomodações
+        </Link>
+        <Link href="/reservas" className={linkClasses("/reservas")}>
+          Reservas
+        </Link>
+        <Link href="/hospedes" className={linkClasses("/hospedes")}>
+          Hóspedes
+        </Link>
+        <Link href="/configuracoes" className={linkClasses("/configuracoes")}>
+          Configurações
+        </Link>
+      </nav>
+
+      <div className="mt-auto text-xs text-brand-100 pt-10">v0.1 Beta</div>
+    </aside>
+  );
+}
+</file>
+
+<file path="app/components/ReservationModal.tsx">
+"use client";
+
+import { useEffect } from "react";
+
+type Props = {
+  isOpen: boolean;
+  onClose: () => void;
+
+  label: string;
+  setLabel: (value: string) => void;
+
+  startDate: string;
+  setStartDate: (value: string) => void;
+
+  endDate: string;
+  setEndDate: (value: string) => void;
+
+  onSave: () => void;
+  isSaving: boolean;
+};
+
+export default function ReservationModal({
+  isOpen,
+  onClose,
+  label,
+  setLabel,
+  startDate,
+  setStartDate,
+  endDate,
+  setEndDate,
+  onSave,
+  isSaving,
+}: Props) {
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "auto";
+    }
+
+    return () => {
+      document.body.style.overflow = "auto";
+    };
+  }, [isOpen]);
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
+
+      <div className="relative bg-white p-8 rounded-2xl w-full max-w-2xl shadow-2xl space-y-4">
+        <h2 className="text-2xl font-semibold tracking-tight">Nova Reserva</h2>
+
+        <input
+          className="w-full border border-gray-300 p-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-black"
+          placeholder="Identificador da reserva (ex: Fulano, Casal de Floripa ou Grupo de amigos)"
+          value={label}
+          onChange={(e) => setLabel(e.target.value)}
+        />
+
+        <input
+          className="w-full border border-gray-300 p-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-black"
+          type="date"
+          value={startDate}
+          onChange={(e) => setStartDate(e.target.value)}
+        />
+
+        <input
+          className="w-full border border-gray-300 p-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-black"
+          type="date"
+          value={endDate}
+          onChange={(e) => setEndDate(e.target.value)}
+        />
+
+        <div className="flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-4 py-2 border rounded"
+          >
+            Cancelar
+          </button>
+
+          <button
+            type="button"
+            onClick={onSave}
+            disabled={isSaving}
+            className="px-4 py-2 bg-black text-white rounded disabled:opacity-50"
+          >
+            {isSaving ? "Salvando..." : "Salvar"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+</file>
+
+<file path="app/components/ui/Badge.tsx">
+export default function Badge({
+  children,
+  variant = "default",
+}: {
+  children: React.ReactNode;
+  variant?: "default" | "success" | "warning" | "danger";
+}) {
+  const styles = {
+    default: "bg-slate-100 text-slate-700",
+    success: "bg-green-100 text-green-700",
+    warning: "bg-yellow-100 text-yellow-700",
+    danger: "bg-red-100 text-red-700",
+  };
+
+  return (
+    <span
+      className={`px-3 py-1 rounded-full text-xs font-medium ${styles[variant]}`}
+    >
+      {children}
+    </span>
+  );
+}
+</file>
+
+<file path="app/components/ui/PageHeader.tsx">
+"use client";
+
+export default function PageHeader({
+  title,
+  subtitle,
+  action,
+}: {
+  title: string;
+  subtitle?: string;
+  action?: React.ReactNode;
+}) {
+  return (
+    <div className="bg-white border-b border-slate-200 px-8 py-6 flex justify-between items-center">
+      <div>
+        <h1 className="text-2xl font-semibold text-brand-900">{title}</h1>
+        {subtitle && <p className="text-sm text-slate-500 mt-1">{subtitle}</p>}
+      </div>
+
+      {action && <div>{action}</div>}
+    </div>
+  );
+}
+</file>
+
+<file path="app/login/page.tsx">
+"use client";
+
+import { useState } from "react";
+import { createClient } from "@/lib/supabase-browser";
+import { useRouter } from "next/navigation";
+
+export default function Login() {
+  const supabase = createClient();
+  const router = useRouter();
+
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+
+  const handleLogin = async () => {
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    if (error) {
+      alert(error.message);
+    } else {
+      router.push("/dashboard");
+    }
+  };
+
+  return (
+    <div className="flex min-h-screen items-center justify-center">
+      <div className="w-96 space-y-4">
+        <h1 className="text-2xl font-bold">Entrar</h1>
+
+        <input
+          className="w-full border p-2"
+          type="email"
+          placeholder="Email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+        />
+
+        <input
+          className="w-full border p-2"
+          type="password"
+          placeholder="Senha"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+        />
+
+        <button
+          onClick={handleLogin}
+          className="w-full bg-black text-white p-2"
+        >
+          Entrar
+        </button>
+      </div>
+    </div>
+  );
+}
+</file>
+
+<file path="app/signup/page.tsx">
+"use client";
+
+import { useState } from "react";
+import { createClient } from "@/lib/supabase-browser";
+import { useRouter } from "next/navigation";
+
+export default function Signup() {
+  const supabase = createClient();
+  const router = useRouter();
+
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+
+  const handleSignup = async () => {
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+    });
+
+    if (error) {
+      alert(error.message);
+    } else {
+      alert("Conta criada! Verifique seu email.");
+      router.push("/dashboard");
+    }
+  };
+
+  return (
+    <div className="flex min-h-screen items-center justify-center">
+      <div className="w-96 space-y-4">
+        <h1 className="text-2xl font-bold">Criar conta</h1>
+
+        <input
+          className="w-full border p-2"
+          type="email"
+          placeholder="Email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+        />
+
+        <input
+          className="w-full border p-2"
+          type="password"
+          placeholder="Senha"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+        />
+
+        <button
+          onClick={handleSignup}
+          className="w-full bg-black text-white p-2"
+        >
+          Criar conta
+        </button>
+      </div>
+    </div>
+  );
+}
+</file>
+
+<file path="eslint.config.mjs">
+import { defineConfig, globalIgnores } from "eslint/config";
+import nextVitals from "eslint-config-next/core-web-vitals";
+import nextTs from "eslint-config-next/typescript";
+
+const eslintConfig = defineConfig([
+  ...nextVitals,
+  ...nextTs,
+  // Override default ignores of eslint-config-next.
+  globalIgnores([
+    // Default ignores of eslint-config-next:
+    ".next/**",
+    "out/**",
+    "build/**",
+    "next-env.d.ts",
+  ]),
+]);
+
+export default eslintConfig;
+</file>
+
+<file path="lib/supabase-browser.ts">
+"use client";
+
+import { createBrowserClient } from "@supabase/ssr";
+
+export function createClient() {
+  return createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
+}
+</file>
+
+<file path="lib/supabase.ts">
+import { createClient } from "@supabase/supabase-js";
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+
+export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+</file>
+
+<file path="next.config.ts">
+import type { NextConfig } from "next";
+
+const nextConfig: NextConfig = {
+  /* config options here */
+};
+
+export default nextConfig;
+</file>
+
+<file path="public/file.svg">
+<svg fill="none" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg"><path d="M14.5 13.5V5.41a1 1 0 0 0-.3-.7L9.8.29A1 1 0 0 0 9.08 0H1.5v13.5A2.5 2.5 0 0 0 4 16h8a2.5 2.5 0 0 0 2.5-2.5m-1.5 0v-7H8v-5H3v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1M9.5 5V2.12L12.38 5zM5.13 5h-.62v1.25h2.12V5zm-.62 3h7.12v1.25H4.5zm.62 3h-.62v1.25h7.12V11z" clip-rule="evenodd" fill="#666" fill-rule="evenodd"/></svg>
+</file>
+
+<file path="public/globe.svg">
+<svg fill="none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><g clip-path="url(#a)"><path fill-rule="evenodd" clip-rule="evenodd" d="M10.27 14.1a6.5 6.5 0 0 0 3.67-3.45q-1.24.21-2.7.34-.31 1.83-.97 3.1M8 16A8 8 0 1 0 8 0a8 8 0 0 0 0 16m.48-1.52a7 7 0 0 1-.96 0H7.5a4 4 0 0 1-.84-1.32q-.38-.89-.63-2.08a40 40 0 0 0 3.92 0q-.25 1.2-.63 2.08a4 4 0 0 1-.84 1.31zm2.94-4.76q1.66-.15 2.95-.43a7 7 0 0 0 0-2.58q-1.3-.27-2.95-.43a18 18 0 0 1 0 3.44m-1.27-3.54a17 17 0 0 1 0 3.64 39 39 0 0 1-4.3 0 17 17 0 0 1 0-3.64 39 39 0 0 1 4.3 0m1.1-1.17q1.45.13 2.69.34a6.5 6.5 0 0 0-3.67-3.44q.65 1.26.98 3.1M8.48 1.5l.01.02q.41.37.84 1.31.38.89.63 2.08a40 40 0 0 0-3.92 0q.25-1.2.63-2.08a4 4 0 0 1 .85-1.32 7 7 0 0 1 .96 0m-2.75.4a6.5 6.5 0 0 0-3.67 3.44 29 29 0 0 1 2.7-.34q.31-1.83.97-3.1M4.58 6.28q-1.66.16-2.95.43a7 7 0 0 0 0 2.58q1.3.27 2.95.43a18 18 0 0 1 0-3.44m.17 4.71q-1.45-.12-2.69-.34a6.5 6.5 0 0 0 3.67 3.44q-.65-1.27-.98-3.1" fill="#666"/></g><defs><clipPath id="a"><path fill="#fff" d="M0 0h16v16H0z"/></clipPath></defs></svg>
+</file>
+
+<file path="public/next.svg">
+<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 394 80"><path fill="#000" d="M262 0h68.5v12.7h-27.2v66.6h-13.6V12.7H262V0ZM149 0v12.7H94v20.4h44.3v12.6H94v21h55v12.6H80.5V0h68.7zm34.3 0h-17.8l63.8 79.4h17.9l-32-39.7 32-39.6h-17.9l-23 28.6-23-28.6zm18.3 56.7-9-11-27.1 33.7h17.8l18.3-22.7z"/><path fill="#000" d="M81 79.3 17 0H0v79.3h13.6V17l50.2 62.3H81Zm252.6-.4c-1 0-1.8-.4-2.5-1s-1.1-1.6-1.1-2.6.3-1.8 1-2.5 1.6-1 2.6-1 1.8.3 2.5 1a3.4 3.4 0 0 1 .6 4.3 3.7 3.7 0 0 1-3 1.8zm23.2-33.5h6v23.3c0 2.1-.4 4-1.3 5.5a9.1 9.1 0 0 1-3.8 3.5c-1.6.8-3.5 1.3-5.7 1.3-2 0-3.7-.4-5.3-1s-2.8-1.8-3.7-3.2c-.9-1.3-1.4-3-1.4-5h6c.1.8.3 1.6.7 2.2s1 1.2 1.6 1.5c.7.4 1.5.5 2.4.5 1 0 1.8-.2 2.4-.6a4 4 0 0 0 1.6-1.8c.3-.8.5-1.8.5-3V45.5zm30.9 9.1a4.4 4.4 0 0 0-2-3.3 7.5 7.5 0 0 0-4.3-1.1c-1.3 0-2.4.2-3.3.5-.9.4-1.6 1-2 1.6a3.5 3.5 0 0 0-.3 4c.3.5.7.9 1.3 1.2l1.8 1 2 .5 3.2.8c1.3.3 2.5.7 3.7 1.2a13 13 0 0 1 3.2 1.8 8.1 8.1 0 0 1 3 6.5c0 2-.5 3.7-1.5 5.1a10 10 0 0 1-4.4 3.5c-1.8.8-4.1 1.2-6.8 1.2-2.6 0-4.9-.4-6.8-1.2-2-.8-3.4-2-4.5-3.5a10 10 0 0 1-1.7-5.6h6a5 5 0 0 0 3.5 4.6c1 .4 2.2.6 3.4.6 1.3 0 2.5-.2 3.5-.6 1-.4 1.8-1 2.4-1.7a4 4 0 0 0 .8-2.4c0-.9-.2-1.6-.7-2.2a11 11 0 0 0-2.1-1.4l-3.2-1-3.8-1c-2.8-.7-5-1.7-6.6-3.2a7.2 7.2 0 0 1-2.4-5.7 8 8 0 0 1 1.7-5 10 10 0 0 1 4.3-3.5c2-.8 4-1.2 6.4-1.2 2.3 0 4.4.4 6.2 1.2 1.8.8 3.2 2 4.3 3.4 1 1.4 1.5 3 1.5 5h-5.8z"/></svg>
+</file>
+
+<file path="public/vercel.svg">
+<svg fill="none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1155 1000"><path d="m577.3 0 577.4 1000H0z" fill="#fff"/></svg>
+</file>
+
+<file path="public/window.svg">
+<svg fill="none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path fill-rule="evenodd" clip-rule="evenodd" d="M1.5 2.5h13v10a1 1 0 0 1-1 1h-11a1 1 0 0 1-1-1zM0 1h16v11.5a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 0 12.5zm3.75 4.5a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5M7 4.75a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0m1.75.75a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5" fill="#666"/></svg>
+</file>
+
+<file path="README.md">
+This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+
+## Getting Started
+
+First, run the development server:
+
+```bash
+npm run dev
+# or
+yarn dev
+# or
+pnpm dev
+# or
+bun dev
+```
+
+Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+
+You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+
+This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+
+## Learn More
+
+To learn more about Next.js, take a look at the following resources:
+
+- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
+- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+
+You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+
+## Deploy on Vercel
+
+The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+
+Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+</file>
+
+<file path=".gitignore">
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# dependencies
+/node_modules
+/.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# testing
+/coverage
+
+# next.js
+/.next/
+/out/
+
+# production
+/build
+
+# misc
+.DS_Store
+*.pem
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# env files (can opt-in for committing if needed)
+.env*
+.env.local
+
+# vercel
+.vercel
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+</file>
+
+<file path="app/api/ical/import/route.ts">
+import { NextResponse } from "next/server";
+import ical from "ical";
+import { createClient } from "@supabase/supabase-js";
+
+export async function POST(req: Request) {
+  try {
+    const { propertyId, icalUrl } = await req.json();
+
+    if (!propertyId || !icalUrl) {
+      return NextResponse.json(
+        { error: "Missing propertyId or icalUrl" },
+        { status: 400 }
+      );
+    }
+
+    const response = await fetch(icalUrl);
+    const text = await response.text();
+
+    const parsed = ical.parseICS(text);
+
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
+
+    let importedCount = 0;
+
+    for (const key in parsed) {
+      const event = parsed[key];
+
+      if (event.type !== "VEVENT") continue;
+      if (!event.start || !event.end) continue;
+
+      await supabase.from("reservations").upsert(
+        {
+          property_id: propertyId,
+          guest_name: event.summary || "Reserva Airbnb",
+          start_date: event.start,
+          end_date: event.end,
+          ical_uid: event.uid,
+          source: "airbnb",
+        },
+        {
+          onConflict: "ical_uid",
+        }
+      );
+
+      importedCount++;
+    }
+
+    return NextResponse.json({
+      success: true,
+      imported: importedCount,
+    });
+  } catch (error) {
+    console.error(error);
+    return NextResponse.json(
+      { error: "Erro ao importar iCal" },
+      { status: 500 }
+    );
+  }
+}
+</file>
+
+<file path="app/components/CalendarView.tsx">
+"use client";
+
+import { Calendar, dateFnsLocalizer } from "react-big-calendar";
+import { format, parse, startOfWeek, getDay, isBefore } from "date-fns";
+import { ptBR } from "date-fns/locale";
+import "react-big-calendar/lib/css/react-big-calendar.css";
+import { useState } from "react";
+
+const locales = {
+  "pt-BR": ptBR,
+};
+
+const localizer = dateFnsLocalizer({
+  format,
+  parse,
+  startOfWeek,
+  getDay,
+  locales,
+});
+
+type Event = {
+  title: string;
+  start: Date;
+  end: Date;
+  status?: string;
+};
+
+export default function CalendarView({
+  events,
+  onSelectSlot,
+  resources,
+}: {
+  events: Event[];
+}) {
+  const [currentDate, setCurrentDate] = useState(new Date());
+  const [currentView, setCurrentView] = useState<"month" | "week">("month");
+
+  const eventPropGetter = (event: Event) => {
+    const today = new Date();
+
+    let backgroundColor = "#F97316";
+
+    if (event.status === "pending") backgroundColor = "#3B82F6";
+    if (event.status === "cancelled") backgroundColor = "#9CA3AF";
+    if (isBefore(event.end, today)) backgroundColor = "#10B981";
+
+    return {
+      style: {
+        backgroundColor,
+        color: "white",
+        border: "none",
+
+        height: "22px",
+        marginTop: "8px",
+
+        width: "92%",
+        marginLeft: "4%",
+
+        fontSize: "12px",
+        display: "flex",
+        alignItems: "center",
+        paddingLeft: "10px",
+
+        overflow: "hidden",
+        whiteSpace: "nowrap",
+        textOverflow: "ellipsis",
+
+        clipPath: "polygon(8px 0, 100% 0, calc(100% - 8px) 100%, 0% 100%)",
+      },
+    };
+  };
+
+  const EventComponent = ({ event }) => {
+    const start = new Date(event.start);
+    const end = new Date(event.end);
+    const today = new Date();
+
+    const isCheckInToday = start.toDateString() === today.toDateString();
+
+    const isCheckOutToday = end.toDateString() === today.toDateString();
+
+    return (
+      <span>
+        {isCheckInToday && "→ "}
+        {event.title}
+        {isCheckOutToday && " ←"}
+      </span>
+    );
+  };
+
+  return (
+    <div className="bg-white p-8 rounded-3xl shadow-lg border border-gray-200 h-[650px]">
+      <Calendar
+        localizer={localizer}
+        events={events}
+        resources={resources}
+        resourceIdAccessor="resourceId"
+        resourceTitleAccessor="resourceTitle"
+        step={1440}
+        timeslots={1}
+        startAccessor="start"
+        endAccessor="end"
+        views={["month", "week"]}
+        view={currentView}
+        onView={(view) => setCurrentView(view as "month" | "week")}
+        culture="pt-BR"
+        selectable
+        onSelectSlot={onSelectSlot}
+        date={currentDate}
+        onNavigate={(date) => setCurrentDate(date)}
+        eventPropGetter={eventPropGetter}
+        components={{
+          event: EventComponent,
+        }}
+        style={{ height: "100%" }}
+        messages={{
+          today: "Hoje",
+          previous: "Anterior",
+          next: "Próximo",
+          month: "Mês",
+          week: "Semana",
+          day: "Dia",
+          agenda: "Agenda",
+          date: "Data",
+          time: "Hora",
+          event: "Reserva",
+          noEventsInRange: "Nenhuma reserva neste período",
+        }}
+      />
+    </div>
+  );
+}
+</file>
+
+<file path="app/components/ui/Button.tsx">
+"use client";
+
+import clsx from "clsx";
+
+type Variant = "primary" | "secondary" | "ghost" | "danger";
+
+export default function Button({
+  children,
+  variant = "primary",
+  className,
+  ...props
+}: React.ButtonHTMLAttributes<HTMLButtonElement> & {
+  variant?: Variant;
+}) {
+  const base = "px-5 py-2.5 rounded-lg font-medium transition shadow-sm";
+
+  const styles = {
+    primary: "bg-accent-600 hover:bg-accent-700 text-white",
+    secondary: "bg-brand-600 hover:bg-brand-700 text-white",
+    ghost: "bg-brand-100 text-brand-800 hover:bg-brand-200",
+    danger: "bg-red-600 hover:bg-red-700 text-white",
+  };
+
+  return (
+    <button className={clsx(base, styles[variant], className)} {...props}>
+      {children}
+    </button>
+  );
+}
+</file>
+
+<file path="app/components/ui/Card.tsx">
+export default function Card({
+  children,
+  className = "",
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <div
+      className={`bg-white border border-gray-200 rounded-2xl shadow-sm p-6 ${className}`}
+    >
+      {children}
+    </div>
+  );
+}
+</file>
+
+<file path="app/components/ui/Input.tsx">
+export default function Input(
+  props: React.InputHTMLAttributes<HTMLInputElement>
+) {
+  return (
+    <input
+      {...props}
+      className="w-full border border-slate-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition"
+    />
+  );
+}
+</file>
+
+<file path="app/globals.css">
+@import "tailwindcss";
+
+/* =========================
+   Design System - Anfitrion
+   ========================= */
+
+@theme {
+  /* Brand (Azul marinho) */
+  --color-brand-900: #0f223d;
+  --color-brand-800: #162f54;
+  --color-brand-700: #1f3a64;
+  --color-brand-600: #274c82;
+  --color-brand-500: #2f5fa0;
+  --color-brand-100: #e8eef7;
+
+  /* Accent (Laranja escuro) */
+  --color-accent-900: #7c2d12;
+  --color-accent-800: #9a3412;
+  --color-accent-700: #c2410c;
+  --color-accent-600: #ea580c;
+  --color-accent-500: #f97316;
+  --color-accent-100: #fff1e6;
+}
+
+/* Base */
+body {
+  background: #f8fafc;
+  color: #0f172a;
+  font-family: system-ui, -apple-system, sans-serif;
+}
+</file>
+
+<file path="app/layout.tsx">
+import "./globals.css";
+import Sidebar from "@/app/components/layout/Sidebar";
+
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <html lang="pt-BR">
+      <body className="bg-slate-50">
+        <div className="flex h-screen">
+          <Sidebar />
+
+          <div className="flex-1 flex flex-col">{children}</div>
+        </div>
+      </body>
+    </html>
+  );
+}
+</file>
+
+<file path="app/page.tsx">
+export default function Home() {
+  return (
+    <div className="flex min-h-screen items-center justify-center">
+      <h1 className="text-2xl font-bold">Anfitrion está rodando 🚀</h1>
+    </div>
+  );
+}
+</file>
+
+<file path="postcss.config.mjs">
+export default {
+  plugins: {
+    "@tailwindcss/postcss": {},
+  },
+};
+</file>
+
+<file path="tsconfig.json">
+{
+  "compilerOptions": {
+    "target": "ES2017",
+    "lib": ["dom", "dom.iterable", "esnext"],
+    "allowJs": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "jsx": "preserve",
+    "incremental": true,
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ],
+    "paths": {
+      "@/*": ["./*"]
+    }
+  },
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts",
+    ".next/dev/types/**/*.ts",
+    "**/*.mts",
+    "tailwind.config.js"
+  ],
+  "exclude": ["node_modules"]
+}
+</file>
+
+<file path="app/acomodacoes/[id]/page.tsx">
+"use client";
+
+import { useEffect, useState } from "react";
+import { createClient } from "@/lib/supabase-browser";
+import { useRouter, useParams } from "next/navigation";
+import PageHeader from "@/app/components/ui/PageHeader";
+import Card from "@/app/components/ui/Card";
+import Button from "@/app/components/ui/Button";
+import Input from "@/app/components/ui/Input";
+
+export default function EditarAcomodacaoPage() {
+  const supabase = createClient();
+  const router = useRouter();
+  const params = useParams();
+
+  const id = params.id as string;
+
+  const [name, setName] = useState("");
+  const [location, setLocation] = useState("");
+  const [status, setStatus] = useState("active");
+  const [airbnbIcal, setAirbnbIcal] = useState("");
+  const [bookingIcal, setBookingIcal] = useState("");
+  const [coHost, setCoHost] = useState("");
+
+  useEffect(() => {
+    const load = async () => {
+      const { data } = await supabase
+        .from("properties")
+        .select("*")
+        .eq("id", id)
+        .single();
+
+      if (!data) return;
+
+      setName(data.name ?? "");
+      setLocation(data.location ?? "");
+      setStatus(data.status ?? "active");
+      setAirbnbIcal(data.ical_import_url ?? "");
+      setBookingIcal(data.booking_ical_url ?? "");
+      setCoHost(data.co_host ?? "");
+    };
+
+    load();
+  }, []);
+
+  const handleSave = async () => {
+    const { error } = await supabase
+      .from("properties")
+      .update({
+        name,
+        location,
+        status,
+        ical_import_url: airbnbIcal || null,
+        booking_ical_url: bookingIcal || null,
+        co_host: coHost || null,
+      })
+      .eq("id", id);
+
+    if (error) {
+      alert(error.message);
+      return;
+    }
+
+    router.push("/acomodacoes");
+  };
+
+  const handleDelete = async () => {
+    const confirm = window.confirm(
+      "Tem certeza que deseja excluir esta acomodação?"
+    );
+
+    if (!confirm) return;
+
+    await supabase.from("properties").delete().eq("id", id);
+
+    router.push("/acomodacoes");
+  };
+
+  return (
+    <main className="flex-1 flex flex-col">
+      <PageHeader
+        title="Editar acomodação"
+        subtitle="Atualize as informações da acomodação"
+      />
+
+      <div className="p-8 max-w-xl">
+        <Card>
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium">Nome</label>
+              <Input value={name} onChange={(e) => setName(e.target.value)} />
+            </div>
+
+            <div>
+              <label className="text-sm font-medium">Localização</label>
+              <Input
+                value={location}
+                onChange={(e) => setLocation(e.target.value)}
+              />
+            </div>
+
+            <div>
+              <label className="text-sm font-medium">Status</label>
+
+              <select
+                value={status}
+                onChange={(e) => setStatus(e.target.value)}
+                className="w-full border border-slate-300 rounded-lg px-4 py-2"
+              >
+                <option value="active">Aberta</option>
+                <option value="inactive">Fechada</option>
+                <option value="maintenance">Manutenção</option>
+                <option value="cleaning">Limpeza</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="text-sm font-medium">URL iCal Airbnb</label>
+              <Input
+                value={airbnbIcal}
+                onChange={(e) => setAirbnbIcal(e.target.value)}
+              />
+            </div>
+
+            <div>
+              <label className="text-sm font-medium">URL iCal Booking</label>
+              <Input
+                value={bookingIcal}
+                onChange={(e) => setBookingIcal(e.target.value)}
+              />
+            </div>
+
+            <div>
+              <label className="text-sm font-medium">Co-host (email)</label>
+              <Input
+                value={coHost}
+                onChange={(e) => setCoHost(e.target.value)}
+              />
+            </div>
+
+            <div className="flex gap-3 pt-4">
+              <Button onClick={handleSave}>Salvar alterações</Button>
+
+              <Button
+                variant="ghost"
+                onClick={() => router.push("/acomodacoes")}
+              >
+                Cancelar
+              </Button>
+
+              <Button variant="danger" onClick={handleDelete}>
+                Excluir
+              </Button>
+            </div>
+          </div>
+        </Card>
+      </div>
+    </main>
+  );
+}
+</file>
+
+<file path="app/acomodacoes/page.tsx">
+"use client";
+
+import { useEffect, useState } from "react";
+import { createClient } from "@/lib/supabase-browser";
+import Link from "next/link";
+import PageHeader from "@/app/components/ui/PageHeader";
+import Card from "@/app/components/ui/Card";
+import Button from "@/app/components/ui/Button";
+import Badge from "@/app/components/ui/Badge";
+
+type Property = {
+  id: string;
+  name: string;
+  location: string | null;
+  status: string;
+  booking_ical_url: string | null;
+  ical_import_url: string | null;
+};
+
+export default function AcomodacoesPage() {
+  const supabase = createClient();
+  const [properties, setProperties] = useState<Property[]>([]);
+
+  useEffect(() => {
+    const load = async () => {
+      const { data } = await supabase
+        .from("properties")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (data) setProperties(data);
+    };
+
+    load();
+  }, []);
+
+  const statusVariant = (status: string) => {
+    switch (status) {
+      case "active":
+        return "success";
+      case "inactive":
+        return "danger";
+      case "maintenance":
+        return "warning";
+      case "cleaning":
+        return "default";
+      default:
+        return "default";
+    }
+  };
+
+  const statusLabel = (status: string) => {
+    switch (status) {
+      case "active":
+        return "Aberta";
+      case "inactive":
+        return "Fechada";
+      case "maintenance":
+        return "Manutenção";
+      case "cleaning":
+        return "Limpeza";
+      default:
+        return status;
+    }
+  };
+
+  return (
+    <main className="flex-1 flex flex-col">
+      <PageHeader
+        title="Acomodações"
+        subtitle="Gerencie suas acomodações"
+        action={
+          <Link href="/acomodacoes/nova">
+            <Button>Nova acomodação</Button>
+          </Link>
+        }
+      />
+
+      <div className="p-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {properties.map((property) => (
+          <Card key={property.id}>
+            <div className="flex justify-between items-start">
+              <div>
+                <h2 className="text-lg font-semibold text-brand-900">
+                  {property.name}
+                </h2>
+                {property.location && (
+                  <p className="text-sm text-slate-500 mt-1">
+                    {property.location}
+                  </p>
+                )}
+              </div>
+
+              <Badge variant={statusVariant(property.status)}>
+                {statusLabel(property.status)}
+              </Badge>
+            </div>
+
+            <div className="mt-4 text-sm text-slate-500 space-y-1">
+              <p>Airbnb iCal: {property.ical_import_url ? "✓" : "—"}</p>
+              <p>Booking iCal: {property.booking_ical_url ? "✓" : "—"}</p>
+            </div>
+
+            <div className="mt-6">
+              <Link href={`/acomodacoes/${property.id}`}>
+                <Button variant="secondary">Editar</Button>
+              </Link>
+            </div>
+          </Card>
+        ))}
+      </div>
+    </main>
+  );
+}
+</file>
+
+<file path="app/dashboard/page.tsx">
+"use client";
+
+import { useEffect, useState } from "react";
+import { createClient } from "@/lib/supabase-browser";
+import { useRouter } from "next/navigation";
+import CalendarView from "@/app/components/CalendarView";
+import ReservationModal from "@/app/components/ReservationModal";
+import Card from "@/app//components/ui/Card";
+import Button from "@/app/components/ui/Button";
+import Input from "@/app/components/ui/Input";
+import PageHeader from "@/app/components/ui/PageHeader";
+import StatCard from "@/app/components/ui/StatCard";
+
+type Property = {
+  id: string;
+  name: string;
+  ical_import_url: string | null;
+  ical_export_token: string | null;
+};
+
+type Reservation = {
+  id: string;
+  label: string;
+  start_date: string;
+  end_date: string;
+  property_id: string;
+  status?: string;
+};
+
+export default function Dashboard() {
+  const supabase = createClient();
+  const router = useRouter();
+
+  const [email, setEmail] = useState<string | null>(null);
+  const [properties, setProperties] = useState<Property[]>([]);
+  const [selectedProperty, setSelectedProperty] = useState<string>("");
+
+  const [reservations, setReservations] = useState<Reservation[]>([]);
+
+  // -------------------------------
+  // Modal de reserva
+  // -------------------------------
+  const [label, setLabel] = useState("");
+  const [guestId, setGuestId] = useState<string | null>(null);
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  const [isPropertyModalOpen, setIsPropertyModalOpen] = useState(false);
+  const [newPropertyName, setNewPropertyName] = useState("");
+  const [newIcalUrl, setNewIcalUrl] = useState("");
+
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+
+  // -------------------------------
+  // Carregar usuário e propriedades
+  // -------------------------------
+  useEffect(() => {
+    const loadData = async () => {
+      setIsLoading(true);
+
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) {
+        router.push("/login");
+        return;
+      }
+
+      setEmail(user.email ?? null);
+
+      const { data: propertiesData } = await supabase
+        .from("properties")
+        .select("*");
+
+      if (propertiesData) {
+        setProperties(propertiesData);
+        if (propertiesData.length > 0) {
+          setSelectedProperty(propertiesData[0].id);
+        }
+      }
+
+      setIsLoading(false);
+    };
+
+    loadData();
+  }, []);
+
+  // -------------------------------
+  // Carregar reservas
+  // -------------------------------
+  useEffect(() => {
+    if (!selectedProperty) return;
+
+    const loadReservations = async () => {
+      const { data } = await supabase
+        .from("reservations")
+        .select("*")
+        .eq("property_id", selectedProperty)
+        .order("start_date", { ascending: true });
+
+      if (data) setReservations(data);
+    };
+
+    loadReservations();
+  }, [selectedProperty]);
+
+  // -------------------------------
+  // Conflito de datas
+  // -------------------------------
+  const hasConflict = () => {
+    if (!startDate || !endDate) return false;
+
+    const newStart = new Date(startDate);
+    const newEnd = new Date(endDate);
+
+    return reservations.some((reservation) => {
+      const existingStart = new Date(reservation.start_date);
+      const existingEnd = new Date(reservation.end_date);
+
+      return newStart < existingEnd && newEnd > existingStart;
+    });
+  };
+
+  // -------------------------------
+  // Criar reserva
+  // -------------------------------
+  const handleAddReservation = async () => {
+    if (!selectedProperty) return;
+
+    try {
+      setIsSaving(true);
+
+      if (!label || !startDate || !endDate) {
+        alert("Preencha todos os campos.");
+        return;
+      }
+
+      if (hasConflict()) {
+        alert("Conflito de datas detectado.");
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from("reservations")
+        .insert({
+          property_id: selectedProperty,
+          label,
+          guest_id: guestId,
+          start_date: startDate,
+          end_date: endDate,
+          status: "confirmed",
+          origin: "direct",
+        })
+        .select()
+        .single();
+
+      if (error?.message.includes("no_overlapping_reservations")) {
+        alert("Já existe uma reserva nesse período.");
+        return;
+      }
+
+      if (error) {
+        alert(error.message);
+        return;
+      }
+
+      if (data) {
+        setReservations((prev) => [...prev, data]);
+      }
+
+      setLabel("");
+      setGuestId(null);
+      setStartDate("");
+      setEndDate("");
+      setIsModalOpen(false);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleSelectSlot = (slotInfo: any) => {
+    const start = slotInfo.start;
+    const end = slotInfo.end;
+
+    setStartDate(start.toISOString().split("T")[0]);
+    setEndDate(end.toISOString().split("T")[0]);
+    setLabel("");
+    setGuestId(null);
+    setIsModalOpen(true);
+  };
+
+  // -------------------------------
+  // Estatísticas (a partir das reservas já carregadas)
+  // -------------------------------
+  const today = new Date();
+  const todayStr = today.toISOString().split("T")[0];
+  const year = today.getFullYear();
+  const month = today.getMonth();
+  const firstDayOfMonth = new Date(year, month, 1);
+  const lastDayOfMonth = new Date(year, month + 1, 0);
+  const daysInMonth = lastDayOfMonth.getDate();
+
+  const reservationsToday = reservations.filter(
+    (r) => r.start_date <= todayStr && r.end_date >= todayStr
+  ).length;
+
+  const checkinsToday = reservations.filter((r) => r.start_date === todayStr).length;
+  const checkoutsToday = reservations.filter((r) => r.end_date === todayStr).length;
+
+  const occupiedDaysInMonth = (() => {
+    const set = new Set<string>();
+    reservations.forEach((r) => {
+      const start = new Date(r.start_date);
+      const end = new Date(r.end_date);
+      const rangeStart = start < firstDayOfMonth ? firstDayOfMonth : start;
+      const rangeEnd = end > lastDayOfMonth ? lastDayOfMonth : end;
+      for (let d = new Date(rangeStart); d <= rangeEnd; d.setDate(d.getDate() + 1)) {
+        set.add(d.toISOString().split("T")[0]);
+      }
+    });
+    return set.size;
+  })();
+  const monthOccupancy = daysInMonth > 0 ? Math.round((occupiedDaysInMonth / daysInMonth) * 100) : 0;
+
+  const events = reservations.map((reservation) => {
+    const start = new Date(reservation.start_date);
+    const end = new Date(reservation.end_date);
+
+    start.setHours(12, 0, 0);
+    end.setHours(12, 0, 0);
+
+    return {
+      title: reservation.label,
+      start,
+      end,
+      resourceId: reservation.property_id,
+    };
+  });
+
+  const resources = properties.map((property) => ({
+    resourceId: property.id,
+    resourceTitle: property.name,
+  }));
+
+  const handleAddProperty = async () => {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) return;
+
+    const { data, error } = await supabase
+      .from("properties")
+      .insert({
+        name: newPropertyName,
+        user_id: user.id,
+        ical_import_url: newIcalUrl || null,
+      })
+      .select()
+      .single();
+
+    if (error) {
+      alert(error.message);
+      return;
+    }
+
+    if (data) {
+      setProperties((prev) => [...prev, data]);
+      setSelectedProperty(data.id);
+    }
+
+    setNewPropertyName("");
+    setNewIcalUrl("");
+    setIsPropertyModalOpen(false);
+  };
+
+  return (
+    <main className="flex-1 flex flex-col">
+      {/* Header da página */}
+      <PageHeader
+        title="Dashboard"
+        subtitle={`Logado como: ${email}`}
+        action={
+          <Button
+            onClick={() => {
+              setLabel("");
+              setGuestId(null);
+              setStartDate("");
+              setEndDate("");
+              setIsModalOpen(true);
+            }}
+          >
+            Nova Reserva
+          </Button>
+        }
+      />
+
+      <div className="flex-1 p-8 space-y-8">
+        {/* Tela vazia */}
+        {!isLoading && properties.length === 0 && (
+          <Card>
+            <p className="mb-4 font-medium">
+              Você ainda não cadastrou nenhuma acomodação.
+            </p>
+            <Button onClick={() => setIsPropertyModalOpen(true)}>
+              Adicionar acomodação
+            </Button>
+          </Card>
+        )}
+
+        {/* Conteúdo principal */}
+        {!isLoading && properties.length > 0 && selectedProperty && (
+          <>
+            <Card>
+              <div className="flex items-end gap-4">
+                <div className="flex-1">
+                  <label className="block mb-2 text-sm font-medium">
+                    Acomodação
+                  </label>
+                  <select
+                    className="w-full border border-slate-300 focus:ring-2 focus:ring-brand-500 focus:border-brand-500 rounded-lg px-4 py-2"
+                    value={selectedProperty}
+                    onChange={(e) => setSelectedProperty(e.target.value)}
+                  >
+                    {properties.map((property) => (
+                      <option key={property.id} value={property.id}>
+                        {property.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </Card>
+
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <StatCard title="Reservas hoje" value={reservationsToday} icon="📅" />
+              <StatCard title="Check-ins hoje" value={checkinsToday} icon="➡️" />
+              <StatCard title="Check-outs hoje" value={checkoutsToday} icon="⬅️" />
+              <StatCard title="Ocupação do mês" value={`${monthOccupancy}%`} icon="🏡" />
+            </div>
+
+            <Card>
+              <CalendarView
+                events={events}
+                resources={resources}
+                onSelectSlot={handleSelectSlot}
+              />
+            </Card>
+          </>
+        )}
+
+        <ReservationModal
+          isOpen={isModalOpen}
+          onClose={() => setIsModalOpen(false)}
+          label={label}
+          setLabel={setLabel}
+          startDate={startDate}
+          setStartDate={setStartDate}
+          endDate={endDate}
+          setEndDate={setEndDate}
+          onSave={handleAddReservation}
+          isSaving={isSaving}
+        />
+      </div>
+    </main>
+  );
+}
+</file>
+
+<file path="package.json">
+{
+  "name": "anfitrion",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint"
+  },
+  "dependencies": {
+    "@supabase/ssr": "^0.8.0",
+    "@supabase/supabase-js": "^2.95.3",
+    "anfitrion": "file:",
+    "date-fns": "^4.1.0",
+    "ical": "^0.8.0",
+    "next": "^15.5.12",
+    "react": "19.2.3",
+    "react-big-calendar": "^1.19.4",
+    "react-dom": "19.2.3"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.2.1",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "autoprefixer": "^10.4.27",
+    "eslint": "^9",
+    "eslint-config-next": "16.1.6",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^4.2.1",
+    "typescript": "^5"
+  }
+}
+</file>
+
+</files>

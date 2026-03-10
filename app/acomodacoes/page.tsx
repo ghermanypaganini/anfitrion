@@ -6,7 +6,7 @@ import Link from "next/link";
 import PageHeader from "@/app/components/ui/PageHeader";
 import Card from "@/app/components/ui/Card";
 import Button from "@/app/components/ui/Button";
-import Badge from "@/app/components/ui/Badge";
+import { PROPERTY_STATUS_OPTIONS, propertyStatusColor } from "@/lib/helpers";
 
 type Property = {
   id: string;
@@ -32,35 +32,25 @@ export default function AcomodacoesPage() {
     };
 
     load();
-  }, []);
+  }, [supabase]);
 
-  const statusVariant = (status: string) => {
-    switch (status) {
-      case "active":
-        return "success";
-      case "inactive":
-        return "danger";
-      case "maintenance":
-        return "warning";
-      case "cleaning":
-        return "default";
-      default:
-        return "default";
-    }
-  };
+  const handleStatusChange = async (propertyId: string, newStatus: string) => {
+    setProperties((prev) =>
+      prev.map((p) => (p.id === propertyId ? { ...p, status: newStatus } : p))
+    );
 
-  const statusLabel = (status: string) => {
-    switch (status) {
-      case "active":
-        return "Aberta";
-      case "inactive":
-        return "Fechada";
-      case "maintenance":
-        return "Manutenção";
-      case "cleaning":
-        return "Limpeza";
-      default:
-        return status;
+    const { error } = await supabase
+      .from("properties")
+      .update({ status: newStatus })
+      .eq("id", propertyId);
+
+    if (error) {
+      alert(error.message);
+      const { data } = await supabase
+        .from("properties")
+        .select("*")
+        .order("created_at", { ascending: false });
+      if (data) setProperties(data);
     }
   };
 
@@ -91,9 +81,26 @@ export default function AcomodacoesPage() {
                 )}
               </div>
 
-              <Badge variant={statusVariant(property.status)}>
-                {statusLabel(property.status)}
-              </Badge>
+              <select
+                value={property.status}
+                onChange={(e) =>
+                  handleStatusChange(property.id, e.target.value)
+                }
+                className={`text-xs font-medium px-3 py-1 rounded-full border-0 cursor-pointer appearance-none pr-6 ${propertyStatusColor(
+                  property.status
+                )}`}
+                style={{
+                  backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E")`,
+                  backgroundRepeat: "no-repeat",
+                  backgroundPosition: "right 6px center",
+                }}
+              >
+                {PROPERTY_STATUS_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
             </div>
 
             <div className="mt-4 text-sm text-slate-500 space-y-1">

@@ -41,7 +41,7 @@ export default function EditarAcomodacaoPage() {
     };
 
     load();
-  }, []);
+  }, [supabase, id]);
 
   const handleSave = async () => {
     const { error } = await supabase

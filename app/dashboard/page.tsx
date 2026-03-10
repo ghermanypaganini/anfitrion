@@ -4,11 +4,15 @@ import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase-browser";
 import { useRouter } from "next/navigation";
 import CalendarView from "@/app/components/CalendarView";
+import type { CalendarEvent } from "@/app/components/CalendarView";
 import ReservationModal from "@/app/components/ReservationModal";
-import Card from "@/app//components/ui/Card";
+import ReservationViewModal from "@/app/components/ReservationViewModal";
+import type { ReservationData } from "@/app/components/ReservationViewModal";
+import Card from "@/app/components/ui/Card";
 import Button from "@/app/components/ui/Button";
 import Input from "@/app/components/ui/Input";
 import PageHeader from "@/app/components/ui/PageHeader";
+import StatCard from "@/app/components/ui/StatCard";
 
 type Property = {
   id: string;
@@ -19,11 +23,28 @@ type Property = {
 
 type Reservation = {
   id: string;
-  guest_name: string;
+  label: string;
   start_date: string;
   end_date: string;
   property_id: string;
+  status?: string;
+  origin?: string;
+  guest_id?: string | null;
+  guest_count?: number;
+  total_price?: number;
+  notes?: string;
 };
+
+type Guest = {
+  id: string;
+  name: string;
+};
+
+// Parse "YYYY-MM-DD" as local date (avoids UTC timezone shift)
+function parseLocalDate(dateStr: string): Date {
+  const [year, month, day] = dateStr.split("-").map(Number);
+  return new Date(year, month - 1, day, 12, 0, 0);
+}
 
 export default function Dashboard() {
   const supabase = createClient();
@@ -32,13 +53,21 @@ export default function Dashboard() {
   const [email, setEmail] = useState<string | null>(null);
   const [properties, setProperties] = useState<Property[]>([]);
   const [selectedProperty, setSelectedProperty] = useState<string>("");
+  const [guests, setGuests] = useState<Guest[]>([]);
 
   const [reservations, setReservations] = useState<Reservation[]>([]);
 
-  const [guestName, setGuestName] = useState("");
+  // Modal de criação
+  const [label, setLabel] = useState("");
+  const [guestId, setGuestId] = useState<string | null>(null);
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
+
+  // Modal de visualização/edição
+  const [viewReservation, setViewReservation] = useState<Reservation | null>(
+    null
+  );
 
   const [isPropertyModalOpen, setIsPropertyModalOpen] = useState(false);
   const [newPropertyName, setNewPropertyName] = useState("");
@@ -47,9 +76,11 @@ export default function Dashboard() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
 
-  // -------------------------------
-  // Carregar usuário e propriedades
-  // -------------------------------
+  // Nome da propriedade selecionada
+  const selectedPropertyName =
+    properties.find((p) => p.id === selectedProperty)?.name ?? "";
+
+  // Carregar usuário, propriedades e hóspedes
   useEffect(() => {
     const loadData = async () => {
       setIsLoading(true);
@@ -58,12 +89,7 @@ export default function Dashboard() {
         data: { user },
       } = await supabase.auth.getUser();
 
-      if (!user) {
-        router.push("/login");
-        return;
-      }
-
-      setEmail(user.email ?? null);
+      setEmail(user?.email ?? null);
 
       const { data: propertiesData } = await supabase
         .from("properties")
@@ -76,15 +102,21 @@ export default function Dashboard() {
         }
       }
 
+      const { data: guestsData } = await supabase
+        .from("guests")
+        .select("id, name");
+
+      if (guestsData) {
+        setGuests(guestsData);
+      }
+
       setIsLoading(false);
     };
 
     loadData();
-  }, []);
+  }, [supabase]);
 
-  // -------------------------------
   // Carregar reservas
-  // -------------------------------
   useEffect(() => {
     if (!selectedProperty) return;
 
@@ -99,33 +131,34 @@ export default function Dashboard() {
     };
 
     loadReservations();
-  }, [selectedProperty]);
+  }, [supabase, selectedProperty]);
 
-  // -------------------------------
   // Conflito de datas
-  // -------------------------------
   const hasConflict = () => {
+    if (!startDate || !endDate) return false;
+
     const newStart = new Date(startDate);
     const newEnd = new Date(endDate);
 
     return reservations.some((reservation) => {
       const existingStart = new Date(reservation.start_date);
       const existingEnd = new Date(reservation.end_date);
+
       return newStart < existingEnd && newEnd > existingStart;
     });
   };
 
-  // -------------------------------
   // Criar reserva
-  // -------------------------------
   const handleAddReservation = async () => {
     if (!selectedProperty) return;
 
     try {
       setIsSaving(true);
 
-      if (!guestName || !startDate || !endDate) {
-        alert("Preencha todos os campos.");
+      if (!label.trim() || !startDate || !endDate) {
+        alert(
+          "Preencha todos os campos. O identificador da reserva é obrigatório."
+        );
         return;
       }
 
@@ -138,12 +171,20 @@ export default function Dashboard() {
         .from("reservations")
         .insert({
           property_id: selectedProperty,
-          guest_name: guestName,
+          label: label.trim(),
+          guest_id: guestId,
           start_date: startDate,
           end_date: endDate,
+          status: "confirmed",
+          origin: "direct",
         })
         .select()
         .single();
+
+      if (error?.message.includes("no_overlapping_reservations")) {
+        alert("Já existe uma reserva nesse período.");
+        return;
+      }
 
       if (error) {
         alert(error.message);
@@ -154,7 +195,8 @@ export default function Dashboard() {
         setReservations((prev) => [...prev, data]);
       }
 
-      setGuestName("");
+      setLabel("");
+      setGuestId(null);
       setStartDate("");
       setEndDate("");
       setIsModalOpen(false);
@@ -163,20 +205,112 @@ export default function Dashboard() {
     }
   };
 
-  const handleSelectSlot = (slotInfo: any) => {
+  const handleSelectSlot = (slotInfo: { start: Date; end: Date }) => {
     const start = slotInfo.start;
     const end = slotInfo.end;
 
     setStartDate(start.toISOString().split("T")[0]);
     setEndDate(end.toISOString().split("T")[0]);
-    setGuestName("");
+    setLabel("");
+    setGuestId(null);
     setIsModalOpen(true);
   };
 
-  const events = reservations.map((reservation) => ({
-    title: reservation.guest_name,
-    start: new Date(reservation.start_date),
-    end: new Date(reservation.end_date),
+  // Clicar na reserva → abrir modal de visualização/edição
+  const handleSelectEvent = (event: CalendarEvent) => {
+    const reservation = reservations.find((r) => r.id === event.id);
+    if (reservation) {
+      setViewReservation(reservation);
+    }
+  };
+
+  // Salvar edição da reserva
+  const handleSaveReservation = async (updated: ReservationData) => {
+    const { error } = await supabase
+      .from("reservations")
+      .update({
+        label: updated.label,
+        start_date: updated.start_date,
+        end_date: updated.end_date,
+        status: updated.status,
+        origin: updated.origin,
+        guest_id: updated.guest_id || null,
+        guest_count: updated.guest_count ?? null,
+        total_price: updated.total_price ?? null,
+        notes: updated.notes || null,
+      })
+      .eq("id", updated.id);
+
+    if (error?.message.includes("no_overlapping_reservations")) {
+      alert("Já existe uma reserva nesse período.");
+      return;
+    }
+
+    if (error) {
+      alert(error.message);
+      return;
+    }
+
+    // Atualizar estado local
+    setReservations((prev) =>
+      prev.map((r) => (r.id === updated.id ? { ...r, ...updated } : r))
+    );
+    setViewReservation({ ...viewReservation!, ...updated });
+  };
+
+  // Cancelar reserva
+  const handleCancelReservation = async (id: string) => {
+    const { error } = await supabase
+      .from("reservations")
+      .update({ status: "cancelled" })
+      .eq("id", id);
+
+    if (error) {
+      alert(error.message);
+      return;
+    }
+
+    // Atualizar estado local
+    setReservations((prev) =>
+      prev.map((r) => (r.id === id ? { ...r, status: "cancelled" } : r))
+    );
+    setViewReservation((prev) =>
+      prev ? { ...prev, status: "cancelled" } : null
+    );
+  };
+
+  // Estatísticas
+  const today = new Date();
+  const todayStr = today.toISOString().split("T")[0];
+
+  const reservationsToday = reservations.filter(
+    (r) => r.start_date <= todayStr && r.end_date >= todayStr
+  ).length;
+
+  const checkinsToday = reservations.filter(
+    (r) => r.start_date === todayStr
+  ).length;
+  const checkoutsToday = reservations.filter(
+    (r) => r.end_date === todayStr
+  ).length;
+
+  const pendingReservations = reservations.filter(
+    (r) => r.status === "pending"
+  ).length;
+
+  // Eventos — parseLocalDate evita o bug de timezone (-1 dia)
+  const events: CalendarEvent[] = reservations.map((reservation) => ({
+    id: reservation.id,
+    title: reservation.label,
+    start: parseLocalDate(reservation.start_date),
+    end: parseLocalDate(reservation.end_date),
+    status: reservation.status,
+    resourceId: reservation.property_id,
+  }));
+
+  const resources = properties.map((property) => ({
+    resourceId: property.id,
+    resourceTitle: property.name,
   }));
 
   const handleAddProperty = async () => {
@@ -213,14 +347,14 @@ export default function Dashboard() {
 
   return (
     <main className="flex-1 flex flex-col">
-      {/* Header da página */}
       <PageHeader
         title="Dashboard"
         subtitle={`Logado como: ${email}`}
         action={
           <Button
             onClick={() => {
-              setGuestName("");
+              setLabel("");
+              setGuestId(null);
               setStartDate("");
               setEndDate("");
               setIsModalOpen(true);
@@ -268,23 +402,63 @@ export default function Dashboard() {
               </div>
             </Card>
 
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <StatCard
+                title="Reservas hoje"
+                value={reservationsToday}
+                icon="📅"
+              />
+              <StatCard
+                title="Check-ins hoje"
+                value={checkinsToday}
+                icon="➡️"
+              />
+              <StatCard
+                title="Check-outs hoje"
+                value={checkoutsToday}
+                icon="⬅️"
+              />
+              <StatCard
+                title="Pendentes"
+                value={pendingReservations}
+                icon="⏳"
+              />
+            </div>
+
             <Card>
-              <CalendarView events={events} onSelectSlot={handleSelectSlot} />
+              <CalendarView
+                events={events}
+                resources={resources}
+                onSelectSlot={handleSelectSlot}
+                onSelectEvent={handleSelectEvent}
+              />
             </Card>
           </>
         )}
 
+        {/* Modal de criação */}
         <ReservationModal
           isOpen={isModalOpen}
           onClose={() => setIsModalOpen(false)}
-          guestName={guestName}
-          setGuestName={setGuestName}
+          propertyName={selectedPropertyName}
+          label={label}
+          setLabel={setLabel}
           startDate={startDate}
           setStartDate={setStartDate}
           endDate={endDate}
           setEndDate={setEndDate}
           onSave={handleAddReservation}
           isSaving={isSaving}
+        />
+
+        {/* Modal de visualização/edição */}
+        <ReservationViewModal
+          reservation={viewReservation}
+          propertyName={selectedPropertyName}
+          guests={guests}
+          onClose={() => setViewReservation(null)}
+          onSave={handleSaveReservation}
+          onCancel={handleCancelReservation}
         />
       </div>
     </main>
