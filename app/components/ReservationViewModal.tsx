@@ -26,6 +26,7 @@ export type ReservationData = {
   guest_count?: number;
   total_price?: number;
   notes?: string;
+  created_at?: string;
 };
 
 type Props = {
@@ -218,7 +219,20 @@ export default function ReservationViewModal({
             </div>
           )}
 
-          <div className="flex justify-between pt-2">
+          {reservation.created_at && (
+            <p className="text-xs text-slate-400">
+              Criada em{" "}
+              {new Date(reservation.created_at).toLocaleDateString("pt-BR", {
+                day: "2-digit",
+                month: "2-digit",
+                year: "numeric",
+                hour: "2-digit",
+                minute: "2-digit",
+              })}
+            </p>
+          )}
+
+          <div className="flex justify-between items-center pt-2">
             <div>
               {!isCancelled && (
                 <button

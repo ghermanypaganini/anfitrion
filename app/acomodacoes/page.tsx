@@ -7,6 +7,7 @@ import PageHeader from "@/app/components/ui/PageHeader";
 import Card from "@/app/components/ui/Card";
 import Button from "@/app/components/ui/Button";
 import { PROPERTY_STATUS_OPTIONS, propertyStatusColor } from "@/lib/helpers";
+import { useToast } from "@/app/components/ui/Toast";
 
 type Property = {
   id: string;
@@ -19,6 +20,7 @@ type Property = {
 
 export default function AcomodacoesPage() {
   const supabase = createClient();
+  const { toast } = useToast();
   const [properties, setProperties] = useState<Property[]>([]);
 
   useEffect(() => {
@@ -45,7 +47,7 @@ export default function AcomodacoesPage() {
       .eq("id", propertyId);
 
     if (error) {
-      alert(error.message);
+      toast(error.message, "error");
       const { data } = await supabase
         .from("properties")
         .select("*")

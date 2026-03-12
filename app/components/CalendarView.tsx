@@ -62,7 +62,7 @@ export default function CalendarView({
   resources,
 }: CalendarViewProps) {
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [currentView, setCurrentView] = useState<"month" | "week">("month");
+  const [currentView, setCurrentView] = useState<"month">("month");
 
   const eventPropGetter = (event: CalendarEvent) => {
     const today = new Date();
@@ -128,9 +128,9 @@ export default function CalendarView({
         timeslots={1}
         startAccessor="start"
         endAccessor="end"
-        views={["month", "week"]}
+        views={["month"]}
         view={currentView}
-        onView={(view) => setCurrentView(view as "month" | "week")}
+        onView={() => setCurrentView("month")}
         culture="pt-BR"
         selectable
         onSelectSlot={onSelectSlot}

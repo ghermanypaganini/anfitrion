@@ -3,16 +3,15 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase-browser";
 import { useRouter } from "next/navigation";
-import CalendarView from "@/app/components/CalendarView";
-import type { CalendarEvent } from "@/app/components/CalendarView";
-import ReservationModal from "@/app/components/ReservationModal";
+import CustomCalendar from "@/app/components/CustomCalendar";
+import type { CalendarReservation } from "@/app/components/CustomCalendar";
 import ReservationViewModal from "@/app/components/ReservationViewModal";
 import type { ReservationData } from "@/app/components/ReservationViewModal";
 import Card from "@/app/components/ui/Card";
 import Button from "@/app/components/ui/Button";
-import Input from "@/app/components/ui/Input";
 import PageHeader from "@/app/components/ui/PageHeader";
 import StatCard from "@/app/components/ui/StatCard";
+import { useToast } from "@/app/components/ui/Toast";
 
 type Property = {
   id: string;
@@ -33,6 +32,7 @@ type Reservation = {
   guest_count?: number;
   total_price?: number;
   notes?: string;
+  created_at?: string;
 };
 
 type Guest = {
@@ -40,137 +40,147 @@ type Guest = {
   name: string;
 };
 
-// Parse "YYYY-MM-DD" as local date (avoids UTC timezone shift)
-function parseLocalDate(dateStr: string): Date {
-  const [year, month, day] = dateStr.split("-").map(Number);
-  return new Date(year, month - 1, day, 12, 0, 0);
-}
+const ALL_PROPERTIES = "__all__";
 
 export default function Dashboard() {
   const supabase = createClient();
   const router = useRouter();
+  const { toast } = useToast();
 
   const [email, setEmail] = useState<string | null>(null);
   const [properties, setProperties] = useState<Property[]>([]);
-  const [selectedProperty, setSelectedProperty] = useState<string>("");
+  const [selectedTab, setSelectedTab] = useState<string>(ALL_PROPERTIES);
   const [guests, setGuests] = useState<Guest[]>([]);
-
   const [reservations, setReservations] = useState<Reservation[]>([]);
 
-  // Modal de criação
   const [label, setLabel] = useState("");
   const [guestId, setGuestId] = useState<string | null>(null);
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
+  const [createPropertyId, setCreatePropertyId] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  // Modal de visualização/edição
   const [viewReservation, setViewReservation] = useState<Reservation | null>(
     null
   );
 
-  const [isPropertyModalOpen, setIsPropertyModalOpen] = useState(false);
-  const [newPropertyName, setNewPropertyName] = useState("");
-  const [newIcalUrl, setNewIcalUrl] = useState("");
-
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
 
-  // Nome da propriedade selecionada
-  const selectedPropertyName =
-    properties.find((p) => p.id === selectedProperty)?.name ?? "";
-
-  // Carregar usuário, propriedades e hóspedes
   useEffect(() => {
     const loadData = async () => {
       setIsLoading(true);
-
       const {
         data: { user },
       } = await supabase.auth.getUser();
-
       setEmail(user?.email ?? null);
 
       const { data: propertiesData } = await supabase
         .from("properties")
         .select("*");
-
-      if (propertiesData) {
-        setProperties(propertiesData);
-        if (propertiesData.length > 0) {
-          setSelectedProperty(propertiesData[0].id);
-        }
-      }
+      if (propertiesData) setProperties(propertiesData);
 
       const { data: guestsData } = await supabase
         .from("guests")
         .select("id, name");
-
-      if (guestsData) {
-        setGuests(guestsData);
-      }
+      if (guestsData) setGuests(guestsData);
 
       setIsLoading(false);
     };
-
     loadData();
   }, [supabase]);
 
-  // Carregar reservas
   useEffect(() => {
-    if (!selectedProperty) return;
+    if (properties.length === 0) return;
 
     const loadReservations = async () => {
-      const { data } = await supabase
-        .from("reservations")
-        .select("*")
-        .eq("property_id", selectedProperty)
-        .order("start_date", { ascending: true });
-
-      if (data) setReservations(data);
+      if (selectedTab !== ALL_PROPERTIES) {
+        const { data } = await supabase
+          .from("reservations")
+          .select("*")
+          .eq("property_id", selectedTab)
+          .order("start_date", { ascending: true });
+        if (data) setReservations(data);
+      } else {
+        const all: Reservation[] = [];
+        for (const p of properties) {
+          const { data } = await supabase
+            .from("reservations")
+            .select("*")
+            .eq("property_id", p.id)
+            .order("start_date", { ascending: true });
+          if (data) all.push(...data);
+        }
+        all.sort((a, b) => a.start_date.localeCompare(b.start_date));
+        setReservations(all);
+      }
     };
-
     loadReservations();
-  }, [supabase, selectedProperty]);
+  }, [supabase, selectedTab, properties]);
 
-  // Conflito de datas
+  const effectivePropertyId =
+    selectedTab !== ALL_PROPERTIES ? selectedTab : createPropertyId;
+
+  const effectivePropertyName =
+    properties.find((p) => p.id === effectivePropertyId)?.name ?? "";
+
   const hasConflict = () => {
-    if (!startDate || !endDate) return false;
-
+    if (!startDate || !endDate || !effectivePropertyId) return false;
     const newStart = new Date(startDate);
     const newEnd = new Date(endDate);
 
-    return reservations.some((reservation) => {
-      const existingStart = new Date(reservation.start_date);
-      const existingEnd = new Date(reservation.end_date);
-
-      return newStart < existingEnd && newEnd > existingStart;
-    });
+    return reservations
+      .filter((r) => r.property_id === effectivePropertyId)
+      .some((r) => {
+        if (r.status === "cancelled") return false;
+        const s = new Date(r.start_date);
+        const e = new Date(r.end_date);
+        return (
+          newStart < e &&
+          newEnd > s &&
+          newStart.getTime() !== e.getTime() &&
+          newEnd.getTime() !== s.getTime()
+        );
+      });
   };
 
-  // Criar reserva
-  const handleAddReservation = async () => {
-    if (!selectedProperty) return;
+  const openCreateModal = (date?: string) => {
+    setLabel("");
+    setGuestId(null);
+    setStartDate(date ?? "");
+    if (date) {
+      const next = new Date(date + "T12:00:00");
+      next.setDate(next.getDate() + 1);
+      setEndDate(next.toISOString().split("T")[0]);
+    } else {
+      setEndDate("");
+    }
+    setCreatePropertyId(
+      selectedTab !== ALL_PROPERTIES ? selectedTab : properties[0]?.id ?? ""
+    );
+    setIsModalOpen(true);
+  };
 
+  const handleAddReservation = async () => {
+    if (!effectivePropertyId) {
+      toast("Selecione uma acomodação.", "warning");
+      return;
+    }
     try {
       setIsSaving(true);
-
       if (!label.trim() || !startDate || !endDate) {
-        alert(
-          "Preencha todos os campos. O identificador da reserva é obrigatório."
-        );
+        toast("Preencha todos os campos.", "warning");
         return;
       }
-
       if (hasConflict()) {
-        alert("Conflito de datas detectado.");
+        toast("Conflito de datas detectado.", "error");
         return;
       }
 
       const { data, error } = await supabase
         .from("reservations")
         .insert({
-          property_id: selectedProperty,
+          property_id: effectivePropertyId,
           label: label.trim(),
           guest_id: guestId,
           start_date: startDate,
@@ -182,49 +192,41 @@ export default function Dashboard() {
         .single();
 
       if (error?.message.includes("no_overlapping_reservations")) {
-        alert("Já existe uma reserva nesse período.");
+        toast("Já existe uma reserva nesse período.", "error");
         return;
       }
-
       if (error) {
-        alert(error.message);
+        toast(error.message, "error");
         return;
       }
-
-      if (data) {
-        setReservations((prev) => [...prev, data]);
-      }
+      if (data) setReservations((prev) => [...prev, data]);
 
       setLabel("");
       setGuestId(null);
       setStartDate("");
       setEndDate("");
+      setCreatePropertyId("");
       setIsModalOpen(false);
+      toast("Reserva criada com sucesso.", "success");
     } finally {
       setIsSaving(false);
     }
   };
 
-  const handleSelectSlot = (slotInfo: { start: Date; end: Date }) => {
-    const start = slotInfo.start;
-    const end = slotInfo.end;
-
-    setStartDate(start.toISOString().split("T")[0]);
-    setEndDate(end.toISOString().split("T")[0]);
-    setLabel("");
-    setGuestId(null);
-    setIsModalOpen(true);
-  };
-
-  // Clicar na reserva → abrir modal de visualização/edição
-  const handleSelectEvent = (event: CalendarEvent) => {
-    const reservation = reservations.find((r) => r.id === event.id);
-    if (reservation) {
-      setViewReservation(reservation);
+  const handleDayClick = (
+    date: string,
+    dayReservations: CalendarReservation[]
+  ) => {
+    if (dayReservations.length >= 1) {
+      const starting = dayReservations.find((r) => r.start_date === date);
+      const target = starting ?? dayReservations[0];
+      const reservation = reservations.find((r) => r.id === target.id);
+      if (reservation) setViewReservation(reservation);
+    } else {
+      openCreateModal(date);
     }
   };
 
-  // Salvar edição da reserva
   const handleSaveReservation = async (updated: ReservationData) => {
     const { error } = await supabase
       .from("reservations")
@@ -242,23 +244,21 @@ export default function Dashboard() {
       .eq("id", updated.id);
 
     if (error?.message.includes("no_overlapping_reservations")) {
-      alert("Já existe uma reserva nesse período.");
+      toast("Já existe uma reserva nesse período.", "error");
       return;
     }
-
     if (error) {
-      alert(error.message);
+      toast(error.message, "error");
       return;
     }
 
-    // Atualizar estado local
     setReservations((prev) =>
       prev.map((r) => (r.id === updated.id ? { ...r, ...updated } : r))
     );
     setViewReservation({ ...viewReservation!, ...updated });
+    toast("Reserva atualizada com sucesso.", "success");
   };
 
-  // Cancelar reserva
   const handleCancelReservation = async (id: string) => {
     const { error } = await supabase
       .from("reservations")
@@ -266,141 +266,92 @@ export default function Dashboard() {
       .eq("id", id);
 
     if (error) {
-      alert(error.message);
+      toast(error.message, "error");
       return;
     }
 
-    // Atualizar estado local
     setReservations((prev) =>
       prev.map((r) => (r.id === id ? { ...r, status: "cancelled" } : r))
     );
     setViewReservation((prev) =>
       prev ? { ...prev, status: "cancelled" } : null
     );
+    toast("Reserva cancelada.", "success");
   };
 
-  // Estatísticas
-  const today = new Date();
-  const todayStr = today.toISOString().split("T")[0];
-
+  const todayStr = new Date().toISOString().split("T")[0];
   const reservationsToday = reservations.filter(
-    (r) => r.start_date <= todayStr && r.end_date >= todayStr
+    (r) =>
+      r.status !== "cancelled" &&
+      r.start_date <= todayStr &&
+      r.end_date > todayStr
   ).length;
-
   const checkinsToday = reservations.filter(
-    (r) => r.start_date === todayStr
+    (r) => r.status !== "cancelled" && r.start_date === todayStr
   ).length;
   const checkoutsToday = reservations.filter(
-    (r) => r.end_date === todayStr
+    (r) => r.status !== "cancelled" && r.end_date === todayStr
   ).length;
-
   const pendingReservations = reservations.filter(
     (r) => r.status === "pending"
   ).length;
 
-  // Eventos — parseLocalDate evita o bug de timezone (-1 dia)
-  const events: CalendarEvent[] = reservations.map((reservation) => ({
-    id: reservation.id,
-    title: reservation.label,
-    start: parseLocalDate(reservation.start_date),
-    end: parseLocalDate(reservation.end_date),
-    status: reservation.status,
-    resourceId: reservation.property_id,
+  const calendarReservations: CalendarReservation[] = reservations.map((r) => ({
+    id: r.id,
+    label: r.label,
+    start_date: r.start_date,
+    end_date: r.end_date,
+    status: r.status,
+    property_id: r.property_id,
   }));
-
-  const resources = properties.map((property) => ({
-    resourceId: property.id,
-    resourceTitle: property.name,
-  }));
-
-  const handleAddProperty = async () => {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) return;
-
-    const { data, error } = await supabase
-      .from("properties")
-      .insert({
-        name: newPropertyName,
-        user_id: user.id,
-        ical_import_url: newIcalUrl || null,
-      })
-      .select()
-      .single();
-
-    if (error) {
-      alert(error.message);
-      return;
-    }
-
-    if (data) {
-      setProperties((prev) => [...prev, data]);
-      setSelectedProperty(data.id);
-    }
-
-    setNewPropertyName("");
-    setNewIcalUrl("");
-    setIsPropertyModalOpen(false);
-  };
 
   return (
     <main className="flex-1 flex flex-col">
       <PageHeader
         title="Dashboard"
         subtitle={`Logado como: ${email}`}
-        action={
-          <Button
-            onClick={() => {
-              setLabel("");
-              setGuestId(null);
-              setStartDate("");
-              setEndDate("");
-              setIsModalOpen(true);
-            }}
-          >
-            Nova Reserva
-          </Button>
-        }
+        action={<Button onClick={() => openCreateModal()}>Nova Reserva</Button>}
       />
 
-      <div className="flex-1 p-8 space-y-8">
-        {/* Tela vazia */}
+      <div className="flex-1 p-4 md:p-8 space-y-6">
         {!isLoading && properties.length === 0 && (
           <Card>
             <p className="mb-4 font-medium">
               Você ainda não cadastrou nenhuma acomodação.
             </p>
-            <Button onClick={() => setIsPropertyModalOpen(true)}>
+            <Button onClick={() => router.push("/acomodacoes/nova")}>
               Adicionar acomodação
             </Button>
           </Card>
         )}
 
-        {/* Conteúdo principal */}
-        {!isLoading && properties.length > 0 && selectedProperty && (
+        {!isLoading && properties.length > 0 && (
           <>
-            <Card>
-              <div className="flex items-end gap-4">
-                <div className="flex-1">
-                  <label className="block mb-2 text-sm font-medium">
-                    Acomodação
-                  </label>
-                  <select
-                    className="w-full border border-slate-300 focus:ring-2 focus:ring-brand-500 focus:border-brand-500 rounded-lg px-4 py-2"
-                    value={selectedProperty}
-                    onChange={(e) => setSelectedProperty(e.target.value)}
-                  >
-                    {properties.map((property) => (
-                      <option key={property.id} value={property.id}>
-                        {property.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-            </Card>
+            <div className="flex gap-2 overflow-x-auto pb-1 -mx-4 px-4 md:mx-0 md:px-0">
+              <button
+                onClick={() => setSelectedTab(ALL_PROPERTIES)}
+                className={`flex-shrink-0 px-4 py-2 rounded-lg text-sm font-medium transition ${
+                  selectedTab === ALL_PROPERTIES
+                    ? "bg-brand-900 text-white shadow-sm"
+                    : "bg-white text-slate-600 hover:bg-slate-100 border border-slate-200"
+                }`}
+              >
+                Todas
+              </button>
+              {properties.map((p) => (
+                <button
+                  key={p.id}
+                  onClick={() => setSelectedTab(p.id)}
+                  className={`flex-shrink-0 px-4 py-2 rounded-lg text-sm font-medium transition ${
+                    selectedTab === p.id
+                      ? "bg-brand-900 text-white shadow-sm"
+                      : "bg-white text-slate-600 hover:bg-slate-100 border border-slate-200"
+                  }`}
+                >
+                  {p.name}
+                </button>
+              ))}
+            </div>
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <StatCard
@@ -425,36 +376,112 @@ export default function Dashboard() {
               />
             </div>
 
-            <Card>
-              <CalendarView
-                events={events}
-                resources={resources}
-                onSelectSlot={handleSelectSlot}
-                onSelectEvent={handleSelectEvent}
-              />
-            </Card>
+            <CustomCalendar
+              reservations={calendarReservations}
+              onDayClick={handleDayClick}
+              onReservationClick={(res) => {
+                const r = reservations.find((x) => x.id === res.id);
+                if (r) setViewReservation(r);
+              }}
+            />
           </>
         )}
 
-        {/* Modal de criação */}
-        <ReservationModal
-          isOpen={isModalOpen}
-          onClose={() => setIsModalOpen(false)}
-          propertyName={selectedPropertyName}
-          label={label}
-          setLabel={setLabel}
-          startDate={startDate}
-          setStartDate={setStartDate}
-          endDate={endDate}
-          setEndDate={setEndDate}
-          onSave={handleAddReservation}
-          isSaving={isSaving}
-        />
+        {isModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center">
+            <div
+              className="absolute inset-0 bg-black/50"
+              onClick={() => setIsModalOpen(false)}
+            />
+            <div className="relative bg-white p-8 rounded-2xl w-full max-w-2xl shadow-2xl space-y-4 mx-4">
+              <h2 className="text-2xl font-semibold tracking-tight">
+                Nova Reserva
+              </h2>
 
-        {/* Modal de visualização/edição */}
+              {selectedTab === ALL_PROPERTIES ? (
+                <div>
+                  <label className="text-sm font-medium">Acomodação</label>
+                  <select
+                    value={createPropertyId}
+                    onChange={(e) => setCreatePropertyId(e.target.value)}
+                    className="w-full border border-gray-300 p-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-black"
+                  >
+                    {properties.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ) : (
+                <p className="text-sm text-slate-500">
+                  Acomodação:{" "}
+                  <span className="font-medium text-slate-700">
+                    {effectivePropertyName}
+                  </span>
+                </p>
+              )}
+
+              <input
+                className="w-full border border-gray-300 p-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-black"
+                placeholder="Identificador da reserva (ex: Casal de Floripa)"
+                value={label}
+                onChange={(e) => setLabel(e.target.value)}
+              />
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-sm font-medium">Check-in</label>
+                  <input
+                    className="w-full border border-gray-300 p-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-black"
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Check-out</label>
+                  <input
+                    className="w-full border border-gray-300 p-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-black"
+                    type="date"
+                    value={endDate}
+                    onChange={(e) => setEndDate(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2">
+                <button
+                  onClick={() => setIsModalOpen(false)}
+                  className="px-4 py-2 border rounded-lg text-sm hover:bg-slate-50"
+                >
+                  Cancelar
+                </button>
+                <Button
+                  onClick={handleAddReservation}
+                  disabled={
+                    isSaving ||
+                    !label.trim() ||
+                    !startDate ||
+                    !endDate ||
+                    !effectivePropertyId
+                  }
+                >
+                  {isSaving ? "Salvando..." : "Salvar"}
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
         <ReservationViewModal
           reservation={viewReservation}
-          propertyName={selectedPropertyName}
+          propertyName={
+            viewReservation
+              ? properties.find((p) => p.id === viewReservation.property_id)
+                  ?.name ?? ""
+              : ""
+          }
           guests={guests}
           onClose={() => setViewReservation(null)}
           onSave={handleSaveReservation}

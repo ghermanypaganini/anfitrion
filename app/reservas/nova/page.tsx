@@ -8,6 +8,7 @@ import PageHeader from "@/app/components/ui/PageHeader";
 import Card from "@/app/components/ui/Card";
 import Button from "@/app/components/ui/Button";
 import Input from "@/app/components/ui/Input";
+import { useToast } from "@/app/components/ui/Toast";
 
 type Property = {
   id: string;
@@ -22,6 +23,7 @@ type Guest = {
 export default function NovaReservaPage() {
   const supabase = createClient();
   const router = useRouter();
+  const { toast } = useToast();
 
   const [properties, setProperties] = useState<Property[]>([]);
   const [guests, setGuests] = useState<Guest[]>([]);
@@ -65,17 +67,17 @@ export default function NovaReservaPage() {
 
   const handleSave = async () => {
     if (!propertyId) {
-      alert("Selecione uma acomodação.");
+      toast("Selecione uma acomodação.", "warning");
       return;
     }
 
     if (!label.trim()) {
-      alert("O identificador da reserva é obrigatório.");
+      toast("O identificador da reserva é obrigatório.", "warning");
       return;
     }
 
     if (!startDate || !endDate) {
-      alert("Preencha as datas de check-in e check-out.");
+      toast("Preencha as datas de check-in e check-out.", "warning");
       return;
     }
 
@@ -94,13 +96,17 @@ export default function NovaReservaPage() {
 
     if (error) {
       if (error.message.includes("no_overlapping_reservations")) {
-        alert("Já existe uma reserva nesse período para esta acomodação.");
+        toast(
+          "Já existe uma reserva nesse período para esta acomodação.",
+          "error"
+        );
         return;
       }
-      alert(error.message);
+      toast(error.message, "error");
       return;
     }
 
+    toast("Reserva criada com sucesso.", "success");
     router.push("/reservas");
   };
 

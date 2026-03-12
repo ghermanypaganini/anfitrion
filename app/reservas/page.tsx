@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { createClient } from "@/lib/supabase-browser";
 import Link from "next/link";
 import Card from "@/app/components/ui/Card";
@@ -15,6 +15,7 @@ import {
   originLabel,
   displayStatus,
 } from "@/lib/helpers";
+import { useToast } from "@/app/components/ui/Toast";
 
 type Property = {
   id: string;
@@ -26,7 +27,7 @@ type Guest = {
   name: string;
 };
 
-type ReservationRow = {
+type Reservation = {
   id: string;
   label: string | null;
   start_date: string;
@@ -34,22 +35,28 @@ type ReservationRow = {
   status: string;
   origin: string;
   property_id: string;
+  property_name: string;
   guest_id: string | null;
   guest_count: number | null;
   total_price: number | null;
   notes: string | null;
-};
-
-type Reservation = ReservationRow & {
-  property_name: string;
+  created_at: string | null;
 };
 
 export default function ReservasPage() {
   const supabase = createClient();
+  const { toast } = useToast();
 
   const [reservations, setReservations] = useState<Reservation[]>([]);
+  const [properties, setProperties] = useState<Property[]>([]);
   const [guests, setGuests] = useState<Guest[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const [searchText, setSearchText] = useState("");
+  const [filterStatus, setFilterStatus] = useState("");
+  const [filterProperty, setFilterProperty] = useState("");
+  const [filterDateFrom, setFilterDateFrom] = useState("");
+  const [filterDateTo, setFilterDateTo] = useState("");
 
   const [selectedReservation, setSelectedReservation] =
     useState<Reservation | null>(null);
@@ -61,12 +68,12 @@ export default function ReservasPage() {
       const { data: propertiesData } = await supabase
         .from("properties")
         .select("id, name");
-
       if (!propertiesData || propertiesData.length === 0) {
         setReservations([]);
         setLoading(false);
         return;
       }
+      setProperties(propertiesData);
 
       const pMap = new Map<string, string>();
       propertiesData.forEach((p) => pMap.set(p.id, p.name));
@@ -74,29 +81,71 @@ export default function ReservasPage() {
       const { data: guestsData } = await supabase
         .from("guests")
         .select("id, name");
-
       if (guestsData) setGuests(guestsData);
 
-      const { data: reservationsData } = await supabase
-        .from("reservations")
-        .select(
-          "id, label, start_date, end_date, status, origin, property_id, guest_id, guest_count, total_price, notes"
-        )
-        .order("start_date", { ascending: true });
+      const all: Reservation[] = [];
+      for (const property of propertiesData) {
+        const { data } = await supabase
+          .from("reservations")
+          .select(
+            "id, label, start_date, end_date, status, origin, property_id, guest_id, guest_count, total_price, notes, created_at"
+          )
+          .eq("property_id", property.id)
+          .order("start_date", { ascending: false });
 
-      if (reservationsData) {
-        const combined: Reservation[] = reservationsData.map((r) => ({
-          ...r,
-          property_name: pMap.get(r.property_id) ?? "—",
-        }));
-        setReservations(combined);
+        if (data) {
+          data.forEach((r) => {
+            all.push({ ...r, property_name: pMap.get(r.property_id) ?? "—" });
+          });
+        }
       }
 
+      all.sort((a, b) => b.start_date.localeCompare(a.start_date));
+      setReservations(all);
       setLoading(false);
     };
-
     loadData();
   }, [supabase]);
+
+  const filtered = useMemo(() => {
+    return reservations.filter((r) => {
+      if (
+        searchText &&
+        !(r.label ?? "").toLowerCase().includes(searchText.toLowerCase())
+      )
+        return false;
+      if (filterStatus) {
+        const visual = displayStatus(r.status, r.end_date);
+        if (visual !== filterStatus) return false;
+      }
+      if (filterProperty && r.property_id !== filterProperty) return false;
+      if (filterDateFrom && r.end_date < filterDateFrom) return false;
+      if (filterDateTo && r.start_date > filterDateTo) return false;
+      return true;
+    });
+  }, [
+    reservations,
+    searchText,
+    filterStatus,
+    filterProperty,
+    filterDateFrom,
+    filterDateTo,
+  ]);
+
+  const hasActiveFilters =
+    searchText ||
+    filterStatus ||
+    filterProperty ||
+    filterDateFrom ||
+    filterDateTo;
+
+  const clearFilters = () => {
+    setSearchText("");
+    setFilterStatus("");
+    setFilterProperty("");
+    setFilterDateFrom("");
+    setFilterDateTo("");
+  };
 
   const handleSaveReservation = async (updated: ReservationData) => {
     const { error } = await supabase
@@ -115,12 +164,11 @@ export default function ReservasPage() {
       .eq("id", updated.id);
 
     if (error?.message.includes("no_overlapping_reservations")) {
-      alert("Já existe uma reserva nesse período.");
+      toast("Já existe uma reserva nesse período.", "error");
       return;
     }
-
     if (error) {
-      alert(error.message);
+      toast(error.message, "error");
       return;
     }
 
@@ -134,6 +182,7 @@ export default function ReservasPage() {
     setSelectedReservation((prev) =>
       prev ? { ...prev, ...updated, property_name: prev.property_name } : null
     );
+    toast("Reserva atualizada com sucesso.", "success");
   };
 
   const handleCancelReservation = async (id: string) => {
@@ -141,9 +190,8 @@ export default function ReservasPage() {
       .from("reservations")
       .update({ status: "cancelled" })
       .eq("id", id);
-
     if (error) {
-      alert(error.message);
+      toast(error.message, "error");
       return;
     }
 
@@ -153,6 +201,7 @@ export default function ReservasPage() {
     setSelectedReservation((prev) =>
       prev ? { ...prev, status: "cancelled" } : null
     );
+    toast("Reserva cancelada.", "success");
   };
 
   return (
@@ -167,61 +216,148 @@ export default function ReservasPage() {
         }
       />
 
-      <div className="p-8">
+      <div className="p-4 md:p-8 space-y-4">
+        <Card>
+          <div className="space-y-3">
+            <div className="flex flex-col md:flex-row gap-3">
+              <div className="flex-1">
+                <input
+                  type="text"
+                  placeholder="Buscar por identificador..."
+                  value={searchText}
+                  onChange={(e) => setSearchText(e.target.value)}
+                  className="w-full border border-slate-300 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition"
+                />
+              </div>
+              <select
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value)}
+                className="border border-slate-300 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+              >
+                <option value="">Todos os status</option>
+                <option value="confirmed">Confirmada</option>
+                <option value="pending">Pendente</option>
+                <option value="cancelled">Cancelada</option>
+                <option value="blocked">Bloqueio</option>
+                <option value="completed">Finalizada</option>
+              </select>
+              <select
+                value={filterProperty}
+                onChange={(e) => setFilterProperty(e.target.value)}
+                className="border border-slate-300 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+              >
+                <option value="">Todas acomodações</option>
+                {properties.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="flex flex-col md:flex-row gap-3 items-end">
+              <div className="flex gap-2 items-center">
+                <label className="text-xs text-slate-500 whitespace-nowrap">
+                  De
+                </label>
+                <input
+                  type="date"
+                  value={filterDateFrom}
+                  onChange={(e) => setFilterDateFrom(e.target.value)}
+                  className="border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+                />
+                <label className="text-xs text-slate-500 whitespace-nowrap">
+                  Até
+                </label>
+                <input
+                  type="date"
+                  value={filterDateTo}
+                  onChange={(e) => setFilterDateTo(e.target.value)}
+                  className="border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+                />
+              </div>
+              {hasActiveFilters && (
+                <button
+                  onClick={clearFilters}
+                  className="text-sm text-slate-500 hover:text-slate-700 underline whitespace-nowrap"
+                >
+                  Limpar filtros
+                </button>
+              )}
+              <div className="md:ml-auto text-xs text-slate-400">
+                {filtered.length} reserva{filtered.length !== 1 ? "s" : ""}
+              </div>
+            </div>
+          </div>
+        </Card>
+
         <Card>
           {loading ? (
             <p className="text-sm text-slate-500 py-4">
               Carregando reservas...
             </p>
-          ) : reservations.length === 0 ? (
-            <p className="text-sm text-slate-500 py-4">
-              Nenhuma reserva encontrada.
-            </p>
+          ) : filtered.length === 0 ? (
+            <div className="py-8 text-center">
+              <p className="text-sm text-slate-500">
+                {hasActiveFilters
+                  ? "Nenhuma reserva encontrada com os filtros aplicados."
+                  : "Nenhuma reserva encontrada."}
+              </p>
+              {hasActiveFilters && (
+                <button
+                  onClick={clearFilters}
+                  className="mt-2 text-sm text-accent-600 hover:text-accent-700 font-medium"
+                >
+                  Limpar filtros
+                </button>
+              )}
+            </div>
           ) : (
-            <table className="w-full text-sm">
-              <thead className="border-b">
-                <tr className="text-left">
-                  <th className="py-2">Identificador</th>
-                  <th>Acomodação</th>
-                  <th>Check-in</th>
-                  <th>Check-out</th>
-                  <th>Status</th>
-                  <th>Origem</th>
-                </tr>
-              </thead>
-
-              <tbody>
-                {reservations.map((r) => {
-                  const visual = displayStatus(r.status, r.end_date);
-                  return (
-                    <tr
-                      key={r.id}
-                      className="border-b hover:bg-gray-50 cursor-pointer"
-                      onClick={() => setSelectedReservation(r)}
-                    >
-                      <td className="py-2">
-                        {r.label ? (
-                          r.label
-                        ) : (
-                          <span className="italic text-slate-400">
-                            Sem identificador
-                          </span>
-                        )}
-                      </td>
-                      <td>{r.property_name}</td>
-                      <td>{r.start_date}</td>
-                      <td>{r.end_date}</td>
-                      <td>
-                        <Badge variant={statusVariant(visual)}>
-                          {statusLabel(visual)}
-                        </Badge>
-                      </td>
-                      <td>{originLabel(r.origin)}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="border-b">
+                  <tr className="text-left">
+                    <th className="py-2 pr-4">Identificador</th>
+                    <th className="pr-4">Acomodação</th>
+                    <th className="pr-4">Check-in</th>
+                    <th className="pr-4">Check-out</th>
+                    <th className="pr-4">Status</th>
+                    <th>Origem</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.map((r) => {
+                    const visual = displayStatus(r.status, r.end_date);
+                    return (
+                      <tr
+                        key={r.id}
+                        className="border-b hover:bg-gray-50 cursor-pointer"
+                        onClick={() => setSelectedReservation(r)}
+                      >
+                        <td className="py-3 pr-4">
+                          {r.label ? (
+                            r.label
+                          ) : (
+                            <span className="italic text-slate-400">
+                              Sem identificador
+                            </span>
+                          )}
+                        </td>
+                        <td className="pr-4">{r.property_name}</td>
+                        <td className="pr-4">{r.start_date}</td>
+                        <td className="pr-4">{r.end_date}</td>
+                        <td className="pr-4">
+                          <Badge variant={statusVariant(visual)}>
+                            {statusLabel(visual)}
+                          </Badge>
+                        </td>
+                        <td>{originLabel(r.origin)}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           )}
         </Card>
       </div>
